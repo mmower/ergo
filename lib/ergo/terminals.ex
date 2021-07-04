@@ -31,7 +31,7 @@ defmodule Ergo.Terminals do
   end
 
   @doc """
-  The char parser is a terminal parser that matches a specific character
+  The `char/1` parser is a terminal parser that matches a specific character.
 
   ## Examples
       iex> context = Ergo.Context.new("Hello World")
@@ -146,7 +146,8 @@ defmodule Ergo.Terminals do
     "[#{s}]"
   end
 
-  @doc """
+  @doc ~S"""
+  The `literal/1` parser matches the specified string character by character.
 
   ## Examples
 
@@ -179,7 +180,8 @@ defmodule Ergo.Terminals do
     end
   end
 
-  @doc """
+  @doc ~S"""
+  The `digit/0` parser accepts a character in the range of 0..9
 
   ## Examples
 
@@ -203,6 +205,7 @@ defmodule Ergo.Terminals do
   end
 
   @doc """
+  The `alpha/0` parser accepts a single character in the range a..z or A..Z.
 
   ## Examples
 
@@ -226,6 +229,7 @@ defmodule Ergo.Terminals do
   end
 
   @doc ~S"""
+  The `ws/0` parser accepts a white space character and is equivalent to the \s regular expression.
 
   ## Examples
 
@@ -251,5 +255,35 @@ defmodule Ergo.Terminals do
   """
   def ws() do
     char([?\s, ?\t, ?\r, ?\n, ?\v])
+  end
+
+  @doc ~S"""
+
+  The `wc/0` parser parses a word character and is analagous to the \d regular expression.
+
+  ## Examples
+
+      iex> context = Ergo.Context.new("Hello World")
+      ...> parser = Terminals.wc()
+      ...> parser.(context)
+      %Ergo.Context{status: :ok, char: ?H, ast: [?H], input: "ello World", index: 1, col: 2}
+
+      iex> context = Ergo.Context.new("0 World")
+      ...> parser = Terminals.wc()
+      ...> parser.(context)
+      %Ergo.Context{status: :ok, char: ?0, ast: [?0], input: " World", index: 1, col: 2}
+
+      iex> context = Ergo.Context.new("_Hello")
+      ...> parser = Terminals.wc()
+      ...> parser.(context)
+      %Ergo.Context{status: :ok, char: ?_, ast: [?_], input: "Hello", index: 1, col: 2}
+
+      iex> context = Ergo.Context.new(" Hello")
+      ...> parser = Terminals.wc()
+      ...> parser.(context)
+      %Ergo.Context{status: {:error, :unexpected_char}, message: "Expected: [0..9, a..z, A..Z, _] Actual:  ", input: " Hello"}
+  """
+  def wc() do
+    char([?0..?9, ?a..?z, ?A..?Z, ?_])
   end
 end
