@@ -16,7 +16,8 @@ defmodule Ergo.Combinators do
   def sequence(parsers, _opts) when is_list(parsers) do
     fn ctx ->
       with %Context{status: :ok, ast: ast} = new_ctx <- sequence_reduce(parsers, ctx) do
-        %{new_ctx | ast: Enum.reverse(ast)}
+        # We reject nils from the AST since they represent ignored values
+        %{new_ctx | ast: ast |> Enum.reject(&is_nil/1) |> Enum.reverse()}
       end
     end
   end
@@ -32,6 +33,23 @@ defmodule Ergo.Combinators do
         err_ctx -> {:halt, err_ctx}
       end
     end)
+  end
+
+  @doc ~S"""
+  The ignore/1 parser matches but ignores the AST of its child parser.
+
+  ## Examples
+      iex> context = Ergo.Context.new("Hello World")
+      ...> parser = Ergo.Combinators.sequence([Ergo.Terminals.literal("Hello"), Ergo.Combinators.ignore(Ergo.Terminals.ws()), Ergo.Terminals.literal("World")])
+      ...> parser.(context)
+      %Ergo.Context{status: :ok, ast: ["Hello", "World"], index: 11, col: 12, char: ?d}
+  """
+  def ignore(parser) do
+    fn ctx ->
+      with %Context{status: :ok} = new_ctx <- parser.(ctx) do
+        %{new_ctx | ast: nil}
+      end
+    end
   end
 
   @doc ~S"""
