@@ -154,7 +154,7 @@ defmodule Ergo.Terminals do
       iex> context = Ergo.Context.new("Hello World")
       iex> parser = Terminals.literal("Hello")
       iex> parser.(context)
-      %Ergo.Context{status: :ok, input: " World", ast: [?o, ?l, ?l, ?e, ?H], char: ?o, index: 5, line: 1, col: 6}
+      %Ergo.Context{status: :ok, input: " World", ast: "Hello", char: ?o, index: 5, line: 1, col: 6}
 
       iex> context = Ergo.Context.new("Hello World")
       iex> parser = Terminals.literal("Hellx")
@@ -168,16 +168,22 @@ defmodule Ergo.Terminals do
   """
   def literal(s) when is_binary(s) do
     fn ctx ->
-      Enum.reduce_while(String.to_charlist(s), ctx, fn c, ctx ->
-        case char(c).(ctx) do
-          %Context{status: :ok} = new_ctx ->
-            {:cont, new_ctx}
-
-          %Context{status: {:error, error}, message: message} ->
-            {:halt, %{ctx | status: {:error, error}, message: message}}
-        end
-      end)
+      with %Context{status: :ok, ast: ast} = new_ctx <- literal_reduce(String.to_charlist(s), ctx) do
+        %{new_ctx | ast: ast |> Enum.reverse |> List.to_string()}
+      end
     end
+  end
+
+  defp literal_reduce(chars, ctx) do
+    Enum.reduce_while(chars, ctx, fn c, ctx ->
+      case char(c).(ctx) do
+        %Context{status: :ok} = new_ctx ->
+          {:cont, new_ctx}
+
+        %Context{status: {:error, error}, message: message} ->
+          {:halt, %{ctx | status: {:error, error}, message: message}}
+      end
+    end)
   end
 
   @doc ~S"""
