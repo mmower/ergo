@@ -8,16 +8,13 @@ defmodule Ergo.Combinators do
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Ergo.Combinators.sequence([Ergo.Terminals.literal("Hello"), Ergo.Terminals.ws(), Ergo.Terminals.literal("World")])
       ...> parser.(context)
-      %Ergo.Context{status: :ok, ast: ["Hello", ' ', "World"], char: ?d, index: 11, line: 1, col: 12}
+      %Ergo.Context{status: :ok, ast: ["Hello", ?\s, "World"], char: ?d, index: 11, line: 1, col: 12}
   """
-
-  def sequence(parsers, opts \\ [])
-
-  def sequence(parsers, _opts) when is_list(parsers) do
+  def sequence(parsers) when is_list(parsers) do
     fn ctx ->
-      with %Context{status: :ok, ast: ast} = new_ctx <- sequence_reduce(parsers, ctx) do
+      with %Context{status: :ok} = new_ctx <- sequence_reduce(parsers, ctx) do
         # We reject nils from the AST since they represent ignored values
-        %{new_ctx | ast: ast |> Enum.reject(&is_nil/1) |> Enum.reverse()}
+        new_ctx |> Context.ast_without_ignored() |> Context.ast_in_parsed_order()
       end
     end
   end
@@ -34,6 +31,50 @@ defmodule Ergo.Combinators do
       end
     end)
   end
+
+  @doc ~S"""
+  ## Examples
+
+      iex> context = Ergo.Context.new("Hello World")
+      ...> parser = Ergo.Combinators.many(Ergo.Terminals.wc())
+      ...> parser.(context)
+      %Ergo.Context{status: :ok, ast: [?H, ?e, ?l, ?l, ?o], input: " World", index: 5, col: 6, char: ?o}
+  """
+  def many(parser) do
+    fn ctx ->
+      parse_many(parser, %{ctx | ast: []})
+      |> Context.ast_without_ignored()
+      |> Context.ast_in_parsed_order()
+    end
+  end
+
+  def parse_many(parser, ctx) do
+    case parser.(%{ctx | ast: []}) do
+      %Context{status: {:error, _}} ->
+        ctx
+
+      %Context{status: :ok} = new_ctx ->
+        IO.puts("")
+        parse_many(parser, %{new_ctx | ast: [new_ctx.ast | ctx.ast]})
+    end
+  end
+
+  # defp many_parser(parser, ctx) do
+  #   many_context_stream(parser, ctx) |> Enum.reduce(%{ctx | ast: []}, fn ctx, result_ctx ->
+  #     IO.puts("many_stream")
+  #     IO.inspect(ctx)
+  #     IO.inspect(result_ctx)
+  #     %{ctx | ast: [ctx.ast | result_ctx.ast]} end)
+  # end
+
+  # def many_context_stream(parser, %Context{} = ctx) when is_function(parser) do
+  #   Stream.unfold(ctx, fn ctx ->
+  #     case parser.(ctx) do
+  #       %Context{status: :ok} = new_ctx -> {ctx, new_ctx}
+  #       _ -> nil
+  #     end
+  #   end)
+  # end
 
   @doc ~S"""
   The ignore/1 parser matches but ignores the AST of its child parser.
@@ -72,5 +113,4 @@ defmodule Ergo.Combinators do
       end
     end
   end
-
 end

@@ -37,7 +37,7 @@ defmodule Ergo.Terminals do
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Terminals.char(?H)
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?H, ast: [?H], input: "ello World", index: 1, line: 1, col: 2}
+      %Ergo.Context{status: :ok, char: ?H, ast: ?H, input: "ello World", index: 1, line: 1, col: 2}
 
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Terminals.char(?h)
@@ -52,7 +52,7 @@ defmodule Ergo.Terminals do
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Terminals.char(?A..?Z)
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?H, ast: [?H], input: "ello World", index: 1, line: 1, col: 2}
+      %Ergo.Context{status: :ok, char: ?H, ast: ?H, input: "ello World", index: 1, line: 1, col: 2}
 
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Terminals.char(?a..?z)
@@ -67,7 +67,7 @@ defmodule Ergo.Terminals do
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Terminals.char([?a..?z, ?A..?Z])
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?H, ast: [?H], input: "ello World", index: 1, line: 1, col: 2}
+      %Ergo.Context{status: :ok, char: ?H, ast: ?H, input: "ello World", index: 1, line: 1, col: 2}
 
       iex> context = Ergo.Context.new("0000")
       ...> parser = Terminals.char([?a..?z, ?A..?Z])
@@ -164,12 +164,12 @@ defmodule Ergo.Terminals do
       iex> context = Ergo.Context.new()
       ...> parser = Terminals.digit()
       ...> parser.(context)
-      %Ergo.Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", char: 0, ast: [], input: "", index: 0, line: 1, col: 1}
+      %Ergo.Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", char: 0, input: "", index: 0, line: 1, col: 1}
   """
   def literal(s) when is_binary(s) do
     fn ctx ->
-      with %Context{status: :ok, ast: ast} = new_ctx <- literal_reduce(String.to_charlist(s), ctx) do
-        %{new_ctx | ast: ast |> Enum.reverse |> List.to_string()}
+      with %Context{status: :ok} = new_ctx <- literal_reduce(String.to_charlist(s), %{ctx | ast: []}) do
+        new_ctx |> Context.ast_in_parsed_order() |> Context.ast_to_string()
       end
     end
   end
@@ -178,7 +178,7 @@ defmodule Ergo.Terminals do
     Enum.reduce_while(chars, ctx, fn c, ctx ->
       case char(c).(ctx) do
         %Context{status: :ok} = new_ctx ->
-          {:cont, new_ctx}
+          {:cont, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}}
 
         %Context{status: {:error, error}, message: message} ->
           {:halt, %{ctx | status: {:error, error}, message: message}}
@@ -194,17 +194,17 @@ defmodule Ergo.Terminals do
     iex> context = Ergo.Context.new("0000")
     ...> parser = Terminals.digit()
     ...> parser.(context)
-    %Ergo.Context{status: :ok, char: ?0, ast: [?0], input: "000", index: 1, line: 1, col: 2}
+    %Ergo.Context{status: :ok, char: ?0, ast: ?0, input: "000", index: 1, line: 1, col: 2}
 
     iex> context = Ergo.Context.new("AAAA")
     ...> parser = Terminals.digit()
     ...> parser.(context)
-    %Ergo.Context{status: {:error, :unexpected_char}, message: "Expected: 0..9 Actual: A", char: 0, ast: [], input: "AAAA", index: 0, line: 1, col: 1}
+    %Ergo.Context{status: {:error, :unexpected_char}, message: "Expected: 0..9 Actual: A", char: 0, input: "AAAA", index: 0, line: 1, col: 1}
 
     iex> context = Ergo.Context.new()
     ...> parser = Terminals.digit()
     ...> parser.(context)
-    %Ergo.Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", char: 0, ast: [], input: "", index: 0, line: 1, col: 1}
+    %Ergo.Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", char: 0, input: "", index: 0, line: 1, col: 1}
   """
   def digit() do
     char(?0..?9)
@@ -218,12 +218,12 @@ defmodule Ergo.Terminals do
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Terminals.alpha()
       ...> parser.(context)
-      %Ergo.Context{status: :ok, input: "ello World", char: ?H, ast: [?H], index: 1, line: 1, col: 2}
+      %Ergo.Context{status: :ok, input: "ello World", char: ?H, ast: ?H, index: 1, line: 1, col: 2}
 
       iex> context = Ergo.Context.new("ello World")
       ...> parser = Terminals.alpha()
       ...> parser.(context)
-      %Ergo.Context{status: :ok, input: "llo World", char: ?e, ast: [?e], index: 1, line: 1, col: 2}
+      %Ergo.Context{status: :ok, input: "llo World", char: ?e, ast: ?e, index: 1, line: 1, col: 2}
 
       iex> context = Ergo.Context.new(" World")
       ...> parser = Terminals.alpha()
@@ -242,17 +242,17 @@ defmodule Ergo.Terminals do
       iex> context = Ergo.Context.new(" World")
       ...> parser = Terminals.ws()
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?\s, ast: [?\s], input: "World", index: 1, line: 1, col: 2}
+      %Ergo.Context{status: :ok, char: ?\s, ast: ?\s, input: "World", index: 1, line: 1, col: 2}
 
       iex> context = Ergo.Context.new("\tWorld")
       ...> parser = Terminals.ws()
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?\t, ast: [?\t], input: "World", index: 1, line: 1, col: 2}
+      %Ergo.Context{status: :ok, char: ?\t, ast: ?\t, input: "World", index: 1, line: 1, col: 2}
 
       iex> context = Ergo.Context.new("\nWorld")
       ...> parser = Terminals.ws()
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?\n, ast: [?\n], input: "World", index: 1, line: 2, col: 1}
+      %Ergo.Context{status: :ok, char: ?\n, ast: ?\n, input: "World", index: 1, line: 2, col: 1}
 
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Terminals.ws()
@@ -272,17 +272,17 @@ defmodule Ergo.Terminals do
       iex> context = Ergo.Context.new("Hello World")
       ...> parser = Terminals.wc()
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?H, ast: [?H], input: "ello World", index: 1, col: 2}
+      %Ergo.Context{status: :ok, char: ?H, ast: ?H, input: "ello World", index: 1, col: 2}
 
       iex> context = Ergo.Context.new("0 World")
       ...> parser = Terminals.wc()
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?0, ast: [?0], input: " World", index: 1, col: 2}
+      %Ergo.Context{status: :ok, char: ?0, ast: ?0, input: " World", index: 1, col: 2}
 
       iex> context = Ergo.Context.new("_Hello")
       ...> parser = Terminals.wc()
       ...> parser.(context)
-      %Ergo.Context{status: :ok, char: ?_, ast: [?_], input: "Hello", index: 1, col: 2}
+      %Ergo.Context{status: :ok, char: ?_, ast: ?_, input: "Hello", index: 1, col: 2}
 
       iex> context = Ergo.Context.new(" Hello")
       ...> parser = Terminals.wc()

@@ -8,7 +8,7 @@ defmodule Ergo.Context do
             line: 1,
             col: 1,
             char: 0,
-            ast: []
+            ast: nil
 
   @doc """
   ## Examples:
@@ -37,7 +37,7 @@ defmodule Ergo.Context do
     %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input"}
 
     iex> Context.next_char(Context.new("Hello World"))
-    %Context{status: :ok, input: "ello World", char: ?H, ast: [?H], index: 1, line: 1, col: 2}
+    %Context{status: :ok, input: "ello World", char: ?H, ast: ?H, index: 1, line: 1, col: 2}
   """
   def next_char(context)
 
@@ -49,7 +49,7 @@ defmodule Ergo.Context do
     }
   end
 
-  def next_char(%Context{input: input, index: index, line: line, col: col, ast: ast} = ctx) do
+  def next_char(%Context{input: input, index: index, line: line, col: col} = ctx) do
     <<char::utf8, rest::binary>> = input
     {new_index, new_line, new_col} = wind_forward({index, line, col}, char == ?\n)
 
@@ -58,7 +58,7 @@ defmodule Ergo.Context do
       | status: :ok,
         input: rest,
         char: char,
-        ast: [char | ast],
+        ast: char,
         index: new_index,
         line: new_line,
         col: new_col
@@ -77,7 +77,7 @@ defmodule Ergo.Context do
   ## Examples
       iex> context = Context.new("Hello")
       ...> Context.peek(context)
-      %Context{status: :ok, char: ?H, ast: [?H], input: "ello", index: 1, line: 1, col: 2}
+      %Context{status: :ok, char: ?H, ast: ?H, input: "ello", index: 1, line: 1, col: 2}
 
       iex> context = Context.new()
       ...> Context.peek(context)
@@ -87,5 +87,46 @@ defmodule Ergo.Context do
     with %Context{status: :ok} = peek_ctx <- next_char(ctx) do
       peek_ctx
     end
+  end
+
+  @doc ~S"""
+  The `ignore` parser matches but returns a nil for the AST. Parsers like `sequence` accumulate these nil values.
+  Call this function to remove them
+
+  ## Examples
+      iex> context = Ergo.Context.new()
+      ...> context = %{context | ast: ["Hello", nil, "World", nil]}
+      ...> Context.ast_without_ignored(context)
+      %Context{ast: ["Hello", "World"]}
+  """
+  def ast_without_ignored(%Context{ast: ast} = ctx) do
+    %{ctx | ast: Enum.reject(ast, &is_nil/1)}
+  end
+
+  @doc ~S"""
+  Because we build ASTs using lists they end up in reverse order. This method reverses the AST back
+  to in-parse-order
+
+  ## Examples
+      iex> context = Ergo.Context.new()
+      ...> context = %{context | ast: [4, 3, 2, 1]}
+      ...> Context.ast_in_parsed_order(context)
+      %Context{ast: [1, 2, 3, 4]}
+  """
+  def ast_in_parsed_order(%Context{ast: ast} = ctx) do
+    %{ctx | ast: Enum.reverse(ast)}
+  end
+
+  @doc ~S"""
+  Where an AST has been built from individual characters and needs to be converted to a string
+
+  ## Examples
+      iex> context = Ergo.Context.new()
+      ...> context = %{context | ast: [?H, ?e, ?l, ?l, ?o]}
+      ...> Context.ast_to_string(context)
+      %Context{ast: "Hello"}
+  """
+  def ast_to_string(%Context{ast: ast} = ctx) do
+    %{ctx | ast: List.to_string(ast)}
   end
 end
