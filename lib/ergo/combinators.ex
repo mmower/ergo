@@ -21,15 +21,19 @@ defmodule Ergo.Combinators do
   """
   def choice(parsers) when is_list(parsers) do
     fn ctx ->
-      Enum.reduce_while(parsers, %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil}, fn parser, ctx ->
-        case parser.(ctx) do
-          %Context{status: :ok} = new_ctx ->
-            {:halt, %{new_ctx | message: nil}}
+      Enum.reduce_while(
+        parsers,
+        %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil},
+        fn parser, ctx ->
+          case parser.(ctx) do
+            %Context{status: :ok} = new_ctx ->
+              {:halt, %{new_ctx | message: nil}}
 
-          _ ->
-            {:cont, ctx}
+            _ ->
+              {:cont, ctx}
+          end
         end
-      end)
+      )
     end
   end
 
@@ -67,26 +71,55 @@ defmodule Ergo.Combinators do
   @doc ~S"""
   ## Examples
 
-      iex> context = Ergo.Context.new("Hello World")
-      ...> parser = Ergo.Combinators.many(Ergo.Terminals.wc())
+      iex> alias Ergo.{Context, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.many(Ergo.Terminals.wc())
       ...> parser.(context)
-      %Ergo.Context{status: :ok, ast: [?H, ?e, ?l, ?l, ?o], input: " World", index: 5, col: 6, char: ?o}
+      %Context{status: :ok, ast: [?H, ?e, ?l, ?l, ?o], input: " World", index: 5, col: 6, char: ?o}
+
+      iex> alias Ergo.{Context, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.many(Ergo.Terminals.wc(), min: 6)
+      ...> parser.(context)
+      %Context{status: {:error, :many_less_than_min}, ast: nil, input: " World", char: ?o, index: 5, col: 6}
+
+      iex> alias Ergo.{Context, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.many(Ergo.Terminals.wc(), max: 3)
+      ...> parser.(context)
+      %Context{status: :ok, ast: [?H, ?e, ?l], input: "lo World", char: ?l, index: 3, col: 4}
   """
-  def many(parser) do
+  def many(parser, opts \\ [])
+
+  def many(parser, opts) do
+    min = Keyword.get(opts, :min, 0)
+    max = Keyword.get(opts, :max, :infinity)
+
     fn ctx ->
-      parse_many(parser, %{ctx | ast: []})
-      |> Context.ast_without_ignored()
-      |> Context.ast_in_parsed_order()
+      with %Context{status: :ok} = new_ctx <- parse_many(parser, %{ctx | ast: []}, min, max, 0) do
+        new_ctx
+        |> Context.ast_without_ignored()
+        |> Context.ast_in_parsed_order()
+      end
     end
   end
 
-  def parse_many(parser, ctx) do
+  def parse_many(parser, ctx, min, max, count) do
     case parser.(%{ctx | ast: []}) do
       %Context{status: {:error, _}} ->
-        ctx
+        if count < min do
+          %{ctx | status: {:error, :many_less_than_min}, ast: nil}
+        else
+          ctx
+        end
 
       %Context{status: :ok} = new_ctx ->
-        parse_many(parser, %{new_ctx | ast: [new_ctx.ast | ctx.ast]})
+        if max != :infinity && count == max - 1 do
+          %{new_ctx | ast: [new_ctx.ast | ctx.ast]}
+        else
+          parse_many(parser, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}, min, max, count+1)
+        end
+
     end
   end
 
