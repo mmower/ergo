@@ -108,6 +108,32 @@ defmodule Ergo.Combinators do
   # end
 
   @doc ~S"""
+
+  ## Examples
+
+      iex> alias Ergo.{Context, Terminals, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.optional(Terminals.literal("Hello"))
+      ...> parser.(context)
+      %Context{status: :ok, ast: "Hello", input: " World", index: 5, col: 6, char: ?o}
+
+      iex> alias Ergo.{Context, Terminals, Combinators}
+      ...> context = Context.new(" World")
+      ...> parser = Combinators.optional(Terminals.literal("Hello"))
+      ...> parser.(context)
+      %Context{status: :ok, ast: nil, input: " World", index: 0, col: 1, char: 0}
+
+  """
+  def optional(parser) do
+    fn ctx ->
+      case parser.(ctx) do
+        %Context{status: :ok} = new_ctx -> new_ctx
+        _ -> ctx
+      end
+    end
+  end
+
+  @doc ~S"""
   The ignore/1 parser matches but ignores the AST of its child parser.
 
   ## Examples
