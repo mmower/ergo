@@ -17,14 +17,14 @@ defmodule Ergo.Combinators do
       ...> context = Context.new("Hello World")
       ...> parser = Combinators.choice([Terminals.literal("Foo"), Terminals.literal("Bar")])
       ...> parser.(context)
-      %Context{status: :ok, ast: nil, input: "Hello World"}
+      %Context{status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil, input: "Hello World"}
   """
   def choice(parsers) when is_list(parsers) do
     fn ctx ->
-      Enum.reduce_while(parsers, %{ctx | status: :ok, ast: nil}, fn parser, ctx ->
+      Enum.reduce_while(parsers, %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil}, fn parser, ctx ->
         case parser.(ctx) do
           %Context{status: :ok} = new_ctx ->
-            {:halt, new_ctx}
+            {:halt, %{new_ctx | message: nil}}
 
           _ ->
             {:cont, ctx}
@@ -86,7 +86,6 @@ defmodule Ergo.Combinators do
         ctx
 
       %Context{status: :ok} = new_ctx ->
-        IO.puts("")
         parse_many(parser, %{new_ctx | ast: [new_ctx.ast | ctx.ast]})
     end
   end
