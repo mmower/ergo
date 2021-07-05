@@ -208,4 +208,58 @@ defmodule Ergo.Combinators do
       end
     end
   end
+
+  @doc ~S"""
+  The `lookahead` parser accepts a parser and matches it but does not update the context when it succeeds.
+
+  ## Example
+
+      iex> alias Ergo.{Context, Terminals, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.lookahead(Terminals.literal("Hello"))
+      ...> parser.(context)
+      %Context{status: :ok, ast: nil, input: "Hello World", char: 0, index: 0, line: 1, col: 1}
+
+      iex> alias Ergo.{Context, Terminals, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.lookahead(Terminals.literal("Helga"))
+      ...> parser.(context)
+      %Context{status: {:error, :lookahead_fail}, ast: [?l, ?e, ?H], char: ?l, index: 3, col: 4, input: "lo World"}
+  """
+  def lookahead(parser) do
+    fn ctx ->
+      case parser.(ctx) do
+        %Context{status: :ok} -> ctx
+        bad_ctx -> %{bad_ctx | status: {:error, :lookahead_fail}, message: nil}
+      end
+    end
+  end
+
+  @doc ~S"""
+  The `not_lookahead` parser accepts a parser and attempts to match it. If the match fails the not_lookahead parser returns status: :ok but does not affect the context otherwise.
+
+  If the match succeeds the `not_lookahead` parser fails with {:error, :lookahead_fail}
+
+  ## Examples
+
+    iex> alias Ergo.{Context, Terminals, Combinators}
+    ...> context = Context.new("Hello World")
+    ...> parser = Combinators.not_lookahead(Terminals.literal("Foo"))
+    ...> parser.(context)
+    %Context{status: :ok, input: "Hello World"}
+
+    iex> alias Ergo.{Context, Terminals, Combinators}
+    ...> context = Context.new("Hello World")
+    ...> parser = Combinators.not_lookahead(Terminals.literal("Hello"))
+    ...> parser.(context)
+    %Context{status: {:error, :lookahead_fail}, input: "Hello World"}
+  """
+  def not_lookahead(parser) do
+    fn ctx ->
+      case parser.(ctx) do
+        %Context{status: {:error, _}} -> %{ctx | status: :ok}
+        %Context{} -> %{ctx | status: {:error, :lookahead_fail}, message: nil}
+      end
+    end
+  end
 end
