@@ -2,6 +2,38 @@ defmodule Ergo.Combinators do
   alias Ergo.Context
 
   @doc ~S"""
+  The `choice/1` parser takes a list of parsers. It tries each in order attempting to match one. Once a match has been
+  made choice returns the result of the matching parser.
+
+  ## Examples
+
+      iex> alias Ergo.{Context, Terminals, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.choice([Terminals.literal("Foo"), Terminals.literal("Bar"), Terminals.literal("Hello"), Terminals.literal("World")])
+      ...> parser.(context)
+      %Context{status: :ok, ast: "Hello", input: " World", char: ?o, index: 5, col: 6}
+
+      iex> alias Ergo.{Context, Terminals, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.choice([Terminals.literal("Foo"), Terminals.literal("Bar")])
+      ...> parser.(context)
+      %Context{status: :ok, ast: nil, input: "Hello World"}
+  """
+  def choice(parsers) when is_list(parsers) do
+    fn ctx ->
+      Enum.reduce_while(parsers, %{ctx | status: :ok, ast: nil}, fn parser, ctx ->
+        case parser.(ctx) do
+          %Context{status: :ok} = new_ctx ->
+            {:halt, new_ctx}
+
+          _ ->
+            {:cont, ctx}
+        end
+      end)
+    end
+  end
+
+  @doc ~S"""
 
   ## Examples
 
