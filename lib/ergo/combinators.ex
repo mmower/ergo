@@ -46,12 +46,26 @@ defmodule Ergo.Combinators do
       ...> parser = Combinators.sequence([Terminals.literal("Hello"), Terminals.ws(), Terminals.literal("World")])
       ...> parser.(context)
       %Context{status: :ok, ast: ["Hello", ?\s, "World"], char: ?d, index: 11, line: 1, col: 12}
+
+      iex> fun = fn ast -> Enum.join(ast, " ") end
+      iex> alias Ergo.{Context, Terminals, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.sequence([Terminals.literal("Hello"), Terminals.ws(), Terminals.literal("World")], map: fun)
+      ...> parser.(context)
+      %Context{status: :ok, ast: "Hello 32 World", char: ?d, index: 11, line: 1, col: 12}
   """
-  def sequence(parsers) when is_list(parsers) do
+  def sequence(parsers, opts \\ [])
+
+  def sequence(parsers, opts) when is_list(parsers) do
+    fun = Keyword.get(opts, :map, &Function.identity/1)
+
     fn ctx ->
       with %Context{status: :ok} = new_ctx <- sequence_reduce(parsers, ctx) do
         # We reject nils from the AST since they represent ignored values
-        new_ctx |> Context.ast_without_ignored() |> Context.ast_in_parsed_order()
+        new_ctx
+        |> Context.ast_without_ignored()
+        |> Context.ast_in_parsed_order()
+        |> Context.ast_transform(fun)
       end
     end
   end
@@ -89,18 +103,26 @@ defmodule Ergo.Combinators do
       ...> parser = Combinators.many(Terminals.wc(), max: 3)
       ...> parser.(context)
       %Context{status: :ok, ast: [?H, ?e, ?l], input: "lo World", char: ?l, index: 3, col: 4}
+
+      iex> alias Ergo.{Context, Combinators}
+      ...> context = Context.new("Hello World")
+      ...> parser = Combinators.many(Ergo.Terminals.wc(), map: &Enum.count/1)
+      ...> parser.(context)
+      %Context{status: :ok, ast: 5, input: " World", index: 5, col: 6, char: ?o}
   """
   def many(parser, opts \\ [])
 
   def many(parser, opts) do
     min = Keyword.get(opts, :min, 0)
     max = Keyword.get(opts, :max, :infinity)
+    fun = Keyword.get(opts, :map, &Function.identity/1)
 
     fn ctx ->
       with %Context{status: :ok} = new_ctx <- parse_many(parser, %{ctx | ast: []}, min, max, 0) do
         new_ctx
         |> Context.ast_without_ignored()
         |> Context.ast_in_parsed_order()
+        |> Context.ast_transform(fun)
       end
     end
   end
@@ -118,9 +140,8 @@ defmodule Ergo.Combinators do
         if max != :infinity && count == max - 1 do
           %{new_ctx | ast: [new_ctx.ast | ctx.ast]}
         else
-          parse_many(parser, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}, min, max, count+1)
+          parse_many(parser, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}, min, max, count + 1)
         end
-
     end
   end
 

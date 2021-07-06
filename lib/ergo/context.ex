@@ -129,4 +129,25 @@ defmodule Ergo.Context do
   def ast_to_string(%Context{ast: ast} = ctx) do
     %{ctx | ast: List.to_string(ast)}
   end
+
+  @doc ~S"""
+  Called to perform an arbitrary transformation on the AST value of a Context.
+
+  ## Examples
+
+      iex> alias Ergo.Context
+      ...> context = Context.new()
+      ...> context = %{context | ast: "Hello World"}
+      ...> Context.ast_transform(context, &Function.identity/1)
+      %Context{ast: "Hello World"}
+
+      iex> alias Ergo.Context
+      ...> context = Context.new()
+      ...> context = %{context | ast: "Hello World"}
+      ...> Context.ast_transform(context, &String.length/1)
+      %Context{ast: 11}
+  """
+  def ast_transform(%Context{ast: ast} = ctx, fun) do
+    %{ctx | ast: fun.(ast)}
+  end
 end
