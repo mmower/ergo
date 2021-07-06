@@ -85,8 +85,19 @@ defmodule Ergo.Terminals do
       ...> parser.(context)
       %Context{status: {:error, :unexpected_char}, message: "Expected: [a..z, A..Z] Actual: 0", input: "0000"}
 
-  """
-  def char(c) when is_integer(c) do
+      iex> alias Ergo.Context
+      ...> context = Context.new("0000")
+      ...> parser = Terminals.char(-?0)
+      ...> parser.(context)
+      %Context{status: {:error, :unexpected_char}, message: "Should not have matched 0", input: "0000"}
+
+      iex> alias Ergo.Context
+      ...> context = Context.new("0000")
+      ...> parser = Terminals.char(-?a)
+      ...> parser.(context)
+      %Context{status: :ok, input: "000", ast: ?0, char: ?0, index: 1, col: 2}
+      """
+  def char(c) when is_integer(c) and c >= 0 do
     fn ctx ->
       case Context.next_char(ctx) do
         %Context{status: :ok, char: ^c} = new_ctx ->
@@ -103,6 +114,22 @@ defmodule Ergo.Terminals do
           new_ctx
       end
     end
+  end
+
+  def char(c) when is_integer(c) and c < 0 do
+    c = -(c)
+    fn ctx ->
+      case Context.next_char(ctx) do
+        %Context{status: :ok, char: ^c} ->
+          %{ctx | status: {:error, :unexpected_char},
+        message: "Should not have matched #{describe_char_match(c)}"}
+
+        %Context{status: :ok, char: _} = new_ctx -> new_ctx
+
+        %Context{status: {:error, _}} = err_ctx -> err_ctx
+      end
+    end
+
   end
 
   def char(min..max) when is_integer(min) and is_integer(max) do
