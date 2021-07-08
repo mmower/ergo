@@ -316,7 +316,7 @@ defmodule Ergo.Terminals do
 
   @doc ~S"""
 
-  The `wc/0` parser parses a word character and is analagous to the \d regular expression.
+  The `wc/0` parser parses a word character and is analagous to the \w regular expression.
 
   ## Examples
 
