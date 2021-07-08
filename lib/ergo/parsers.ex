@@ -1,4 +1,5 @@
 defmodule Ergo.Parsers do
+  alias Ergo.Context
   import Ergo.{Terminals, Combinators}
 
   @doc ~S"""
@@ -14,13 +15,51 @@ defmodule Ergo.Parsers do
       %Context{status: :ok, ast: 2345, char: ?5, index: 4, col: 5}
   """
   def uint() do
-    fun = fn digit_list ->
-      digit_list
-      |> Enum.map(fn digit -> digit - ?0 end)
-      |> Enum.join("")
-      |> String.to_integer()
+    parser = digits()
+
+    fn ctx ->
+      with %Context{status: :ok, ast: ast} = new_ctx <- parser.(ctx) do
+        uint_value = ast |> Enum.join("") |> String.to_integer()
+        %{new_ctx | ast: uint_value}
+      end
     end
-    many(digit(), min: 1, map: fun )
+  end
+
+  @doc ~S"""
+
+  ## Examples
+
+      iex> alias Ergo.{Context, Parsers}
+      iex> context = Context.new("234.56")
+      iex> parser = Parsers.decimal()
+      iex> assert %Context{status: :ok, ast: 234.56} = parser.(context)
+  """
+  def decimal() do
+    parser = sequence([digits(), ignore(char(?.)), digits()])
+
+    fn ctx ->
+      with %Context{status: :ok, ast: ast} = new_ctx <- parser.(ctx) do
+        [i_part | [d_part]] = ast
+        i_val = i_part |> Enum.join("")
+        d_val = d_part |> Enum.join("")
+        %{new_ctx | ast: String.to_float("#{i_val}.#{d_val}")}
+      end
+    end
+  end
+
+  @doc ~S"""
+  The `digits` parser matches a series of at least one digit and returns an enumeration
+  of the digits.
+
+  ## Examples
+
+      iex> alias Ergo.{Context, Parsers}
+      iex> context = Context.new("2345")
+      iex> parser = Parsers.digits()
+      iex> assert %Context{status: :ok, ast: [2, 3, 4, 5]} = parser.(context)
+  """
+  def digits() do
+    many(digit(), min: 1, map: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end)
   end
 
 end
