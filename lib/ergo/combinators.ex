@@ -1,5 +1,6 @@
 defmodule Ergo.Combinators do
   alias Ergo.Context
+  require Logger
 
   @doc ~S"""
   The `choice/1` parser takes a list of parsers. It tries each in order attempting to match one. Once a match has been
@@ -19,21 +20,38 @@ defmodule Ergo.Combinators do
       ...> parser.(context)
       %Context{status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil, input: "Hello World"}
   """
-  def choice(parsers) when is_list(parsers) do
+  def choice(parsers, opts \\ []) when is_list(parsers) do
+    debug = Keyword.get(opts, :debug, false)
+    label = Keyword.get(opts, :label, "")
+    map_fn = Keyword.get(opts, :map, nil)
+
     fn ctx ->
-      Enum.reduce_while(
+      if debug, do: Logger.info("choice: #{label}")
+      with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx) do
+        if map_fn do
+          %{new_ctx | ast: map_fn.(new_ctx.ast)}
+        else
+          new_ctx
+        end
+      end
+    end
+  end
+
+  defp apply_parsers_in_turn(parsers, ctx) do
+    Enum.reduce_while(
         parsers,
         %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil},
-        fn parser, ctx ->
-          case parser.(ctx) do
-            %Context{status: :ok} = new_ctx ->
-              {:halt, %{new_ctx | message: nil}}
-
-            _ ->
-              {:cont, ctx}
-          end
-        end
+        &reduce_parsers/2
       )
+  end
+
+  defp reduce_parsers(parser, ctx) do
+    case parser.(ctx) do
+      %Context{status: :ok} = new_ctx ->
+        {:halt, %{new_ctx | message: nil}}
+
+      _ ->
+        {:cont, ctx}
     end
   end
 
@@ -57,9 +75,12 @@ defmodule Ergo.Combinators do
   def sequence(parsers, opts \\ [])
 
   def sequence(parsers, opts) when is_list(parsers) do
+    debug = Keyword.get(opts, :debug, false)
+    label = Keyword.get(opts, :label, "")
     fun = Keyword.get(opts, :map, &Function.identity/1)
 
     fn ctx ->
+      if debug, do: Logger.info("sequence: #{label}")
       with %Context{status: :ok} = new_ctx <- sequence_reduce(parsers, ctx) do
         # We reject nils from the AST since they represent ignored values
         new_ctx
@@ -112,12 +133,16 @@ defmodule Ergo.Combinators do
   """
   def many(parser, opts \\ [])
 
-  def many(parser, opts) do
+  def many(parser, opts) when is_function(parser) do
+    debug = Keyword.get(opts, :debug, false)
+    label = Keyword.get(opts, :label, "")
+
     min = Keyword.get(opts, :min, 0)
     max = Keyword.get(opts, :max, :infinity)
     fun = Keyword.get(opts, :map, &Function.identity/1)
 
     fn ctx ->
+      if debug, do: Logger.info("many: #{label}")
       with %Context{status: :ok} = new_ctx <- parse_many(parser, %{ctx | ast: []}, min, max, 0) do
         new_ctx
         |> Context.ast_without_ignored()
@@ -179,8 +204,13 @@ defmodule Ergo.Combinators do
       %Context{status: :ok, ast: nil, input: " World", index: 0, col: 1, char: 0}
 
   """
-  def optional(parser) do
+  def optional(parser, opts \\ []) when is_function(parser) do
+    debug = Keyword.get(opts, :debug, false)
+    label = Keyword.get(opts, :label, "")
+
     fn ctx ->
+      if debug, do: Logger.info("optional: #{label}")
+
       case parser.(ctx) do
         %Context{status: :ok} = new_ctx -> new_ctx
         _ -> ctx
@@ -199,7 +229,7 @@ defmodule Ergo.Combinators do
       ...> parser.(context)
       %Context{status: :ok, ast: ["Hello", "World"], index: 11, col: 12, char: ?d}
   """
-  def ignore(parser) do
+  def ignore(parser) when is_function(parser) do
     fn ctx ->
       with %Context{status: :ok} = new_ctx <- parser.(ctx) do
         %{new_ctx | ast: nil}
@@ -222,7 +252,7 @@ defmodule Ergo.Combinators do
       ...> parser_2.(context)
       %Context{status: :ok, ast: 10, char: ?4, index: 4, line: 1, col: 5}
   """
-  def transform(parser, t_fn) do
+  def transform(parser, t_fn) when is_function(parser) and is_function(t_fn) do
     fn ctx ->
       with %Context{status: :ok, ast: ast} = new_ctx <- parser.(ctx) do
         %{new_ctx | ast: t_fn.(ast)}
@@ -247,7 +277,7 @@ defmodule Ergo.Combinators do
       ...> parser.(context)
       %Context{status: {:error, :lookahead_fail}, ast: [?l, ?e, ?H], char: ?l, index: 3, col: 4, input: "lo World"}
   """
-  def lookahead(parser) do
+  def lookahead(parser) when is_function(parser) do
     fn ctx ->
       case parser.(ctx) do
         %Context{status: :ok} -> ctx
@@ -275,7 +305,7 @@ defmodule Ergo.Combinators do
     ...> parser.(context)
     %Context{status: {:error, :lookahead_fail}, input: "Hello World"}
   """
-  def not_lookahead(parser) do
+  def not_lookahead(parser) when is_function(parser) do
     fn ctx ->
       case parser.(ctx) do
         %Context{status: {:error, _}} -> %{ctx | status: :ok}
