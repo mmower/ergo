@@ -8,16 +8,18 @@ defmodule Ergo.Combinators do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.choice([Terminals.literal("Foo"), Terminals.literal("Bar"), Terminals.literal("Hello"), Terminals.literal("World")])
-      ...> parser.(context)
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Parsers, Combinators}
+      iex> context = Context.new("Hello World")
+      iex> parser = choice([literal("Foo"), literal("Bar"), literal("Hello"), literal("World")])
+      iex> parser.(context)
       %Context{status: :ok, ast: "Hello", input: " World", char: ?o, index: 5, col: 6}
 
-      iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.choice([Terminals.literal("Foo"), Terminals.literal("Bar")])
-      ...> parser.(context)
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Parsers, Combinators}
+      iex> context = Context.new("Hello World")
+      iex> parser = choice([literal("Foo"), literal("Bar")])
+      iex> parser.(context)
       %Context{status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil, input: "Hello World"}
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
@@ -59,17 +61,18 @@ defmodule Ergo.Combinators do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.sequence([Terminals.literal("Hello"), Terminals.ws(), Terminals.literal("World")])
-      ...> parser.(context)
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators, Parsers}
+      iex> context = Context.new("Hello World")
+      iex> parser = sequence([literal("Hello"), ws(), literal("World")])
+      iex> parser.(context)
       %Context{status: :ok, ast: ["Hello", ?\s, "World"], char: ?d, index: 11, line: 1, col: 12}
 
-      iex> fun = fn ast -> Enum.join(ast, " ") end
-      iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.sequence([Terminals.literal("Hello"), Terminals.ws(), Terminals.literal("World")], map: fun)
-      ...> parser.(context)
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators, Parsers}
+      iex> context = Context.new("Hello World")
+      iex> parser = sequence([literal("Hello"), ws(), literal("World")], map: fn ast -> Enum.join(ast, " ") end)
+      iex> parser.(context)
       %Context{status: :ok, ast: "Hello 32 World", char: ?d, index: 11, line: 1, col: 12}
   """
   def sequence(parsers, opts \\ [])
@@ -108,27 +111,27 @@ defmodule Ergo.Combinators do
   ## Examples
 
       iex> alias Ergo.{Context, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.many(Ergo.Terminals.wc())
-      ...> parser.(context)
+      iex> context = Context.new("Hello World")
+      iex> parser = Combinators.many(Ergo.Terminals.wc())
+      iex> parser.(context)
       %Context{status: :ok, ast: [?H, ?e, ?l, ?l, ?o], input: " World", index: 5, col: 6, char: ?o}
 
       iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.many(Terminals.wc(), min: 6)
-      ...> parser.(context)
+      iex> context = Context.new("Hello World")
+      iex> parser = Combinators.many(Terminals.wc(), min: 6)
+      iex> parser.(context)
       %Context{status: {:error, :many_less_than_min}, ast: nil, input: " World", char: ?o, index: 5, col: 6}
 
       iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.many(Terminals.wc(), max: 3)
-      ...> parser.(context)
+      iex> context = Context.new("Hello World")
+      iex> parser = Combinators.many(Terminals.wc(), max: 3)
+      iex> parser.(context)
       %Context{status: :ok, ast: [?H, ?e, ?l], input: "lo World", char: ?l, index: 3, col: 4}
 
       iex> alias Ergo.{Context, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.many(Ergo.Terminals.wc(), map: &Enum.count/1)
-      ...> parser.(context)
+      iex> context = Context.new("Hello World")
+      iex> parser = Combinators.many(Ergo.Terminals.wc(), map: &Enum.count/1)
+      iex> parser.(context)
       %Context{status: :ok, ast: 5, input: " World", index: 5, col: 6, char: ?o}
   """
   def many(parser, opts \\ [])
@@ -170,37 +173,21 @@ defmodule Ergo.Combinators do
     end
   end
 
-  # defp many_parser(parser, ctx) do
-  #   many_context_stream(parser, ctx) |> Enum.reduce(%{ctx | ast: []}, fn ctx, result_ctx ->
-  #     IO.puts("many_stream")
-  #     IO.inspect(ctx)
-  #     IO.inspect(result_ctx)
-  #     %{ctx | ast: [ctx.ast | result_ctx.ast]} end)
-  # end
-
-  # def many_context_stream(parser, %Context{} = ctx) when is_function(parser) do
-  #   Stream.unfold(ctx, fn ctx ->
-  #     case parser.(ctx) do
-  #       %Context{status: :ok} = new_ctx -> {ctx, new_ctx}
-  #       _ -> nil
-  #     end
-  #   end)
-  # end
 
   @doc ~S"""
 
   ## Examples
 
       iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.optional(Terminals.literal("Hello"))
-      ...> parser.(context)
+      iex> context = Context.new("Hello World")
+      iex> parser = Combinators.optional(Terminals.literal("Hello"))
+      iex> parser.(context)
       %Context{status: :ok, ast: "Hello", input: " World", index: 5, col: 6, char: ?o}
 
       iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new(" World")
-      ...> parser = Combinators.optional(Terminals.literal("Hello"))
-      ...> parser.(context)
+      iex> context = Context.new(" World")
+      iex> parser = Combinators.optional(Terminals.literal("Hello"))
+      iex> parser.(context)
       %Context{status: :ok, ast: nil, input: " World", index: 0, col: 1, char: 0}
 
   """
@@ -223,10 +210,11 @@ defmodule Ergo.Combinators do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.sequence([Terminals.literal("Hello"), Combinators.ignore(Terminals.ws()), Terminals.literal("World")])
-      ...> parser.(context)
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators, Parsers}
+      iex> context = Context.new("Hello World")
+      iex> parser = sequence([literal("Hello"), ignore(ws()), literal("World")])
+      iex> parser.(context)
       %Context{status: :ok, ast: ["Hello", "World"], index: 11, col: 12, char: ?d}
   """
   def ignore(parser) when is_function(parser) do
@@ -244,12 +232,12 @@ defmodule Ergo.Combinators do
 
       # Sum the digits
       iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> digit_to_int = fn d -> List.to_string([d]) |> String.to_integer() end
-      ...> t_fn = fn ast -> ast |> Enum.map(digit_to_int) |> Enum.sum() end
-      ...> context = Context.new("1234")
-      ...> parser_1 = Combinators.sequence([Terminals.digit(), Terminals.digit(), Terminals.digit(), Terminals.digit()])
-      ...> parser_2 = Combinators.transform(parser_1, t_fn)
-      ...> parser_2.(context)
+      iex> digit_to_int = fn d -> List.to_string([d]) |> String.to_integer() end
+      iex> t_fn = fn ast -> ast |> Enum.map(digit_to_int) |> Enum.sum() end
+      iex> context = Context.new("1234")
+      iex> parser_1 = Combinators.sequence([Terminals.digit(), Terminals.digit(), Terminals.digit(), Terminals.digit()])
+      iex> parser_2 = Combinators.transform(parser_1, t_fn)
+      iex> parser_2.(context)
       %Context{status: :ok, ast: 10, char: ?4, index: 4, line: 1, col: 5}
   """
   def transform(parser, t_fn) when is_function(parser) and is_function(t_fn) do
@@ -266,15 +254,15 @@ defmodule Ergo.Combinators do
   ## Example
 
       iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.lookahead(Terminals.literal("Hello"))
-      ...> parser.(context)
+      iex> context = Context.new("Hello World")
+      iex> parser = Combinators.lookahead(Terminals.literal("Hello"))
+      iex> parser.(context)
       %Context{status: :ok, ast: nil, input: "Hello World", char: 0, index: 0, line: 1, col: 1}
 
       iex> alias Ergo.{Context, Terminals, Combinators}
-      ...> context = Context.new("Hello World")
-      ...> parser = Combinators.lookahead(Terminals.literal("Helga"))
-      ...> parser.(context)
+      iex> context = Context.new("Hello World")
+      iex> parser = Combinators.lookahead(Terminals.literal("Helga"))
+      iex> parser.(context)
       %Context{status: {:error, :lookahead_fail}, ast: [?l, ?e, ?H], char: ?l, index: 3, col: 4, input: "lo World"}
   """
   def lookahead(parser) when is_function(parser) do
@@ -294,15 +282,15 @@ defmodule Ergo.Combinators do
   ## Examples
 
     iex> alias Ergo.{Context, Terminals, Combinators}
-    ...> context = Context.new("Hello World")
-    ...> parser = Combinators.not_lookahead(Terminals.literal("Foo"))
-    ...> parser.(context)
+    iex> context = Context.new("Hello World")
+    iex> parser = Combinators.not_lookahead(Terminals.literal("Foo"))
+    iex> parser.(context)
     %Context{status: :ok, input: "Hello World"}
 
     iex> alias Ergo.{Context, Terminals, Combinators}
-    ...> context = Context.new("Hello World")
-    ...> parser = Combinators.not_lookahead(Terminals.literal("Hello"))
-    ...> parser.(context)
+    iex> context = Context.new("Hello World")
+    iex> parser = Combinators.not_lookahead(Terminals.literal("Hello"))
+    iex> parser.(context)
     %Context{status: {:error, :lookahead_fail}, input: "Hello World"}
   """
   def not_lookahead(parser) when is_function(parser) do

@@ -2,16 +2,21 @@ defmodule Ergo.Parsers do
   alias Ergo.Context
   import Ergo.{Terminals, Combinators}
 
+  @moduledoc """
+  The Parsers module exists to house utility parsers that while they are terminals in the sense that they are not parameterised, they internally make use of parsers from the Combinators module.
+  """
+
   @doc ~S"""
   The `unit` parser matches a series of at least one digit and returns the
   integer value of the digits.
 
   ## Examples
 
-      iex> alias Ergo.{Context, Parsers}
-      ...> context = Context.new("2345")
-      ...> parser = Parsers.uint()
-      ...> parser.(context)
+      iex> alias Ergo.Context
+      iex> import Ergo.Parsers
+      iex> context = Context.new("2345")
+      iex> parser = uint()
+      iex> parser.(context)
       %Context{status: :ok, ast: 2345, char: ?5, index: 4, col: 5}
   """
   def uint() do
@@ -29,9 +34,10 @@ defmodule Ergo.Parsers do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Parsers}
+      iex> alias Ergo.Context
+      iex> import Ergo.Parsers
       iex> context = Context.new("234.56")
-      iex> parser = Parsers.decimal()
+      iex> parser = decimal()
       iex> assert %Context{status: :ok, ast: 234.56} = parser.(context)
   """
   def decimal() do
