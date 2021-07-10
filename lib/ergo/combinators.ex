@@ -268,7 +268,7 @@ defmodule Ergo.Combinators do
   def lookahead(parser) when is_function(parser) do
     fn ctx ->
       case parser.(ctx) do
-        %Context{status: :ok} -> ctx
+        %Context{status: :ok} -> %{ctx | ast: nil}
         bad_ctx -> %{bad_ctx | status: {:error, :lookahead_fail}, message: nil}
       end
     end
