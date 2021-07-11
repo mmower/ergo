@@ -358,11 +358,16 @@ defmodule Ergo.Terminals do
       %Context{status: {:error, :unexpected_char}, message: "Expected: x Actual: o", input: "o World", ast: [?l, ?l, ?e, ?H], char: ?l, index: 4, line: 1, col: 5}
 
   """
-  def literal(s) when is_binary(s) do
+  def literal(s, opts \\ []) when is_binary(s) do
+    map_fn = Keyword.get(opts, :map, nil)
+
     fn ctx ->
       with %Context{status: :ok} = new_ctx <-
              literal_reduce(String.to_charlist(s), %{ctx | ast: []}) do
-        new_ctx |> Context.ast_in_parsed_order() |> Context.ast_to_string()
+        new_ctx
+        |> Context.ast_in_parsed_order()
+        |> Context.ast_to_string()
+        |> Context.ast_transform(map_fn)
       end
     end
   end

@@ -80,7 +80,7 @@ defmodule Ergo.Combinators do
   def sequence(parsers, opts) when is_list(parsers) do
     debug = Keyword.get(opts, :debug, false)
     label = Keyword.get(opts, :label, "")
-    fun = Keyword.get(opts, :map, &Function.identity/1)
+    map_fn = Keyword.get(opts, :map, nil)
 
     fn ctx ->
       if debug, do: Logger.info("sequence: #{label}")
@@ -89,7 +89,7 @@ defmodule Ergo.Combinators do
         new_ctx
         |> Context.ast_without_ignored()
         |> Context.ast_in_parsed_order()
-        |> Context.ast_transform(fun)
+        |> Context.ast_transform(map_fn)
       end
     end
   end
@@ -142,7 +142,7 @@ defmodule Ergo.Combinators do
 
     min = Keyword.get(opts, :min, 0)
     max = Keyword.get(opts, :max, :infinity)
-    fun = Keyword.get(opts, :map, &Function.identity/1)
+    map_fn = Keyword.get(opts, :map, nil)
 
     fn ctx ->
       if debug, do: Logger.info("many: #{label}")
@@ -150,7 +150,7 @@ defmodule Ergo.Combinators do
         new_ctx
         |> Context.ast_without_ignored()
         |> Context.ast_in_parsed_order()
-        |> Context.ast_transform(fun)
+        |> Context.ast_transform(map_fn)
       end
     end
   end

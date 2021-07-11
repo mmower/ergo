@@ -122,8 +122,8 @@ defmodule Ergo.Context do
 
   ## Examples
       iex> context = Ergo.Context.new()
-      ...> context = %{context | ast: [?H, ?e, ?l, ?l, ?o]}
-      ...> Context.ast_to_string(context)
+      iex> context = %{context | ast: [?H, ?e, ?l, ?l, ?o]}
+      iex> Context.ast_to_string(context)
       %Context{ast: "Hello"}
   """
   def ast_to_string(%Context{ast: ast} = ctx) do
@@ -136,18 +136,27 @@ defmodule Ergo.Context do
   ## Examples
 
       iex> alias Ergo.Context
-      ...> context = Context.new()
-      ...> context = %{context | ast: "Hello World"}
-      ...> Context.ast_transform(context, &Function.identity/1)
+      iex> context = Context.new()
+      iex> context = %{context | ast: "Hello World"}
+      iex> Context.ast_transform(context, &Function.identity/1)
       %Context{ast: "Hello World"}
 
       iex> alias Ergo.Context
-      ...> context = Context.new()
-      ...> context = %{context | ast: "Hello World"}
-      ...> Context.ast_transform(context, &String.length/1)
+      iex> context = Context.new()
+      iex> context = %{context | ast: "Hello World"}
+      iex> Context.ast_transform(context, &String.length/1)
       %Context{ast: 11}
+
+      iex> alias Ergo.Context
+      iex> context = Context.new()
+      iex> context = %{context | ast: "Hello World"}
+      iex> Context.ast_transform(context, nil)
+      %Context{ast: "Hello World"}
   """
   def ast_transform(%Context{ast: ast} = ctx, fun) do
-    %{ctx | ast: fun.(ast)}
+    case fun do
+      f when is_function(f) -> %{ctx | ast: f.(ast)}
+      nil -> ctx
+    end
   end
 end
