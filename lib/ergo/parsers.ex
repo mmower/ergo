@@ -4,6 +4,13 @@ defmodule Ergo.Parsers do
 
   @moduledoc """
   The Parsers module exists to house utility parsers that while they are terminals in the sense that they are not parameterised, they internally make use of parsers from the Combinators module.
+
+  # Parsers
+
+  * `uint`
+  * `decimal`
+  * `digits`
+
   """
 
   @doc ~S"""

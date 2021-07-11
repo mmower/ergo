@@ -2,6 +2,22 @@ defmodule Ergo.Combinators do
   alias Ergo.Context
   require Logger
 
+  @moduledoc """
+  `Ergo.Combinators` is the key set of parsers used for combining together other parsers.
+
+  # Parsers
+
+  * choice
+  * sequence
+  * many
+  * optional
+  * ignore
+  * transform
+  * lookeahead
+  * not_lookahead
+
+  """
+
   @doc ~S"""
   The `choice/1` parser takes a list of parsers. It tries each in order attempting to match one. Once a match has been
   made choice returns the result of the matching parser.

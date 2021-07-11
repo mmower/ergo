@@ -1,7 +1,7 @@
 # Ergo
 ## Elixir Parser Combinators
 ## Author: Matt Mower <matt@theartofnavigation.co.uk>
-## Version: 0.1.1
+## Version: 0.1.2
 
 Ergo is an Elixir language parser combinator library. The name 'ergo' means 'therefore' means 'for that reason' which seemed appropriate for a parser.
 

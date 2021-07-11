@@ -2,6 +2,23 @@ defmodule Ergo.Terminals do
   alias Ergo.Context
   import Ergo.Utils, only: [char_to_string: 1]
 
+  @moduledoc ~S"""
+  `Ergo.Terminals` contains the terminal parsers.
+
+  A terminal parser is a parser that is not parameterised with another parser and works directly with the input.
+
+  # Parsers
+
+  * eoi
+  * char
+  * digit
+  * alpha
+  * ws
+  * wc
+  * literal
+
+  """
+
   @doc """
   The eoi parser is a terminal parser that checks whether the input
   has been fully consumed. If there is input remaining to be parsed

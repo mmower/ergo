@@ -1,6 +1,47 @@
 defmodule Ergo.Context do
   alias __MODULE__
 
+  @moduledoc """
+  `Ergo.Context` defines the `Context` record type and functions to create and manipulate them.
+
+  # Fields
+
+  * `status`
+
+  When a parser returns it either sets `status` to `:ok` to indicate that it was successful or to a tuple
+  `{:error, :error_atom}` where `error_atom` is an atom indiciting the specific type of error. It may optionally
+  set the `message` field to a human readable message.
+
+  * `message`
+
+  A human readable version of any error raised.
+
+  * `input`
+
+  The binary input being parsed.
+
+  * `index`
+
+  Represents the position in the input which has been read so far. Initially 0 it increments for each character processed.
+
+  * `line`
+
+  Represents the current line of the input. Initially 1 it increments whenever a `\n` is read from the input.
+
+  * `col`
+
+  Represents the current column of the input. Initially 1 it is incremented every time a character is read from the input and automatically resets whenever a `\n` is read.
+
+  * `char`
+
+  Represents the last character read from the input.
+
+  * `ast`
+
+  Represents the current data structure being built from the input.
+
+  """
+
   defstruct status: :ok,
             message: nil,
             input: "",
@@ -11,6 +52,8 @@ defmodule Ergo.Context do
             ast: nil
 
   @doc """
+  Returns a newly initialised `Context` with `input` set to the string passed in.
+
   ## Examples:
 
     iex> Context.new("Hello World")
@@ -21,6 +64,8 @@ defmodule Ergo.Context do
   end
 
   @doc """
+  Returns a newly initialised `Context` with an empty `input`.
+
   ## Examples
 
     iex> Context.new()
@@ -31,6 +76,12 @@ defmodule Ergo.Context do
   end
 
   @doc """
+  Reads the next character from the `input` of the passed in `Context`.
+
+  If the `input` is empty returns `status: {:error, :unexpected_eoi}`.
+
+  Otherwise returns a new `Context` setting `char` to the character read and incrementing positional variables such as `index`, `line`, and `column` appropriately.
+
   ## Examples
 
     iex> Context.next_char(Context.new())
@@ -73,7 +124,6 @@ defmodule Ergo.Context do
   end
 
   @doc """
-
   ## Examples
       iex> context = Context.new("Hello")
       ...> Context.peek(context)
