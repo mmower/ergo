@@ -372,11 +372,14 @@ defmodule Ergo.Terminals do
       iex> context = Context.new("Hello World")
       iex> parser = literal("Hellx")
       iex> parser.(context)
-      %Context{status: {:error, :unexpected_char}, message: "Expected: x Actual: o", input: "o World", ast: [?l, ?l, ?e, ?H], char: ?l, index: 4, line: 1, col: 5}
-
+      %Context{status: {:error, :unexpected_char}, message: "Expected: x Actual: o [in literal \"Hellx\"]", input: "o World", ast: [?l, ?l, ?e, ?H], char: ?l, index: 4, line: 1, col: 5}
   """
   def literal(s, opts \\ []) when is_binary(s) do
     map_fn = Keyword.get(opts, :map, nil)
+    label = case Keyword.get(opts, :label, nil) do
+      nil -> ""
+      l -> " - #{l}"
+    end
 
     fn ctx ->
       with %Context{status: :ok} = new_ctx <-
@@ -385,6 +388,9 @@ defmodule Ergo.Terminals do
         |> Context.ast_in_parsed_order()
         |> Context.ast_to_string()
         |> Context.ast_transform(map_fn)
+      else
+        %Context{message: message} = err_ctx ->
+          %{err_ctx | message: "#{message} [in literal \"#{s}\"#{label}]"}
       end
     end
   end
