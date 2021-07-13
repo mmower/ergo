@@ -31,7 +31,7 @@ defmodule Ergo.Terminals do
       iex> context = Context.new()
       iex> parser = eoi()
       iex> parser.(context)
-      %Context{status: :ok}
+      %Context{status: :ok, ast: nil}
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
@@ -43,7 +43,7 @@ defmodule Ergo.Terminals do
   def eoi() do
     fn
       %Context{input: ""} = ctx ->
-        %{ctx | status: :ok}
+        %{ctx | status: :ok, ast: nil}
 
       %Context{input: input} = ctx ->
         {truncated, _} = String.split_at(input, 20)

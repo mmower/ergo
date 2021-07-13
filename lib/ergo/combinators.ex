@@ -194,18 +194,19 @@ defmodule Ergo.Combinators do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Terminals, Combinators}
-      iex> context = Context.new("Hello World")
-      iex> parser = Combinators.optional(Terminals.literal("Hello"))
-      iex> parser.(context)
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators}
+      iex> Ergo.parse(optional(literal("Hello")), "Hello World")
       %Context{status: :ok, ast: "Hello", input: " World", index: 5, col: 6, char: ?o}
 
-      iex> alias Ergo.{Context, Terminals, Combinators}
+      In this example we deliberately ensure that the Context ast is not nil
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators}
       iex> context = Context.new(" World")
-      iex> parser = Combinators.optional(Terminals.literal("Hello"))
+      iex> context = %{context | ast: []}
+      iex> parser = optional(literal("Hello"))
       iex> parser.(context)
       %Context{status: :ok, ast: nil, input: " World", index: 0, col: 1, char: 0}
-
   """
   def optional(parser, opts \\ []) when is_function(parser) do
     debug = Keyword.get(opts, :debug, false)
@@ -216,7 +217,7 @@ defmodule Ergo.Combinators do
 
       case parser.(ctx) do
         %Context{status: :ok} = new_ctx -> new_ctx
-        _ -> ctx
+        _ -> %{ctx | ast: nil}
       end
     end
   end
