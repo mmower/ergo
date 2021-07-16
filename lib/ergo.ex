@@ -1,5 +1,5 @@
 defmodule Ergo do
-  alias Ergo.Context
+  alias Ergo.{Context, Parser}
 
   @moduledoc ~S"""
   `Ergo` contains the helper function `parse/2` otherwise see `Ergo.Terminals`, `Ergo.Combinators` and `Ergo.Parsers` for the individual parsers.
@@ -15,8 +15,8 @@ defmodule Ergo do
       iex> Ergo.parse(parser, "Hello World")
       %Ergo.Context{status: :ok, ast: "Hello", char: ?o, input: " World", index: 5, line: 1, col: 6}
   """
-  def parse(parser, input) when is_function(parser) and is_binary(input) do
-    parser.(Context.new(input))
+  def parse(%Parser{} = parser, input) when is_binary(input) do
+    Parser.call(parser, Context.new(input))
   end
 
 end

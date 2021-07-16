@@ -75,6 +75,20 @@ defmodule Ergo.Context do
     %Context{}
   end
 
+  @doc ~S"""
+  Clears the value of the status and ast fields to ensure that the wrong status information cannot be returned from a child parser.
+
+  ## Examples
+
+      iex> context = Context.new("Hello World")
+      iex> context = %{context | status: {:error, :inexplicable_error}, ast: true}
+      iex> context = Context.reset_status(context)
+      iex> assert %Context{status: :ok, ast: nil} = context
+  """
+  def reset_status(%Context{} = ctx) do
+    %{ctx | status: :ok, ast: nil}
+  end
+
   @doc """
   Reads the next character from the `input` of the passed in `Context`.
 

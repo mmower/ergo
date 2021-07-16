@@ -1,5 +1,5 @@
 defmodule Ergo.Parsers do
-  alias Ergo.Context
+  alias Ergo.{Context, Parser}
   import Ergo.{Terminals, Combinators}
 
   @moduledoc """
@@ -19,45 +19,59 @@ defmodule Ergo.Parsers do
 
   ## Examples
 
-      iex> alias Ergo.Context
+      iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Parsers
       iex> context = Context.new("2345")
       iex> parser = uint()
-      iex> parser.(context)
+      iex> Parser.call(parser, context)
       %Context{status: :ok, ast: 2345, char: ?5, index: 4, col: 5}
   """
-  def uint() do
+  def uint(opts \\ []) do
+    label = Keyword.get(opts, :label, "")
     parser = digits()
 
-    fn ctx ->
-      with %Context{status: :ok, ast: ast} = new_ctx <- parser.(ctx) do
-        uint_value = ast |> Enum.join("") |> String.to_integer()
-        %{new_ctx | ast: uint_value}
-      end
-    end
+    Parser.new(
+      fn ctx ->
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do
+          uint_value = ast |> Enum.join("") |> String.to_integer()
+          %{new_ctx | ast: uint_value}
+        end
+      end,
+      %{
+        parser: "uint",
+        label: label
+      }
+    )
   end
 
   @doc ~S"""
 
   ## Examples
 
-      iex> alias Ergo.Context
+      iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Parsers
       iex> context = Context.new("234.56")
       iex> parser = decimal()
-      iex> assert %Context{status: :ok, ast: 234.56} = parser.(context)
+      iex> assert %Context{status: :ok, ast: 234.56} = Parser.call(parser, context)
   """
-  def decimal() do
+  def decimal(opts \\ []) do
+    label = Keyword.get(opts, :label, "")
     parser = sequence([digits(), ignore(char(?.)), digits()])
 
-    fn ctx ->
-      with %Context{status: :ok, ast: ast} = new_ctx <- parser.(ctx) do
-        [i_part | [d_part]] = ast
-        i_val = i_part |> Enum.join("")
-        d_val = d_part |> Enum.join("")
-        %{new_ctx | ast: String.to_float("#{i_val}.#{d_val}")}
-      end
-    end
+    Parser.new(
+      fn ctx ->
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do
+          [i_part | [d_part]] = ast
+          i_val = i_part |> Enum.join("")
+          d_val = d_part |> Enum.join("")
+          %{new_ctx | ast: String.to_float("#{i_val}.#{d_val}")}
+        end
+      end,
+      %{
+        parser: "decimal",
+        label: label
+      }
+    )
   end
 
   @doc ~S"""
@@ -66,10 +80,11 @@ defmodule Ergo.Parsers do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Parsers}
+      iex> alias Ergo.{Context, Parser}
+      iex> import Ergo.Parsers
       iex> context = Context.new("2345")
-      iex> parser = Parsers.digits()
-      iex> assert %Context{status: :ok, ast: [2, 3, 4, 5]} = parser.(context)
+      iex> parser = digits()
+      iex> assert %Context{status: :ok, ast: [2, 3, 4, 5]} = Parser.call(parser, context)
   """
   def digits() do
     many(digit(), min: 1, map: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end)
