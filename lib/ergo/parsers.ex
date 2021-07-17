@@ -27,7 +27,7 @@ defmodule Ergo.Parsers do
       %Context{status: :ok, ast: 2345, char: ?5, index: 4, col: 5}
   """
   def uint(opts \\ []) do
-    label = Keyword.get(opts, :label, "")
+    label = Keyword.get(opts, :label, "#")
     parser = digits()
 
     Parser.new(
@@ -38,8 +38,7 @@ defmodule Ergo.Parsers do
         end
       end,
       %{
-        parser: "uint",
-        label: label
+        description: "UInt<#{label}>"
       }
     )
   end
@@ -55,7 +54,7 @@ defmodule Ergo.Parsers do
       iex> assert %Context{status: :ok, ast: 234.56} = Parser.call(parser, context)
   """
   def decimal(opts \\ []) do
-    label = Keyword.get(opts, :label, "")
+    label = Keyword.get(opts, :label, "#")
     parser = sequence([digits(), ignore(char(?.)), digits()])
 
     Parser.new(
@@ -68,8 +67,7 @@ defmodule Ergo.Parsers do
         end
       end,
       %{
-        parser: "decimal",
-        label: label
+        description: "Decimal<#{label}>"
       }
     )
   end
@@ -86,8 +84,11 @@ defmodule Ergo.Parsers do
       iex> parser = digits()
       iex> assert %Context{status: :ok, ast: [2, 3, 4, 5]} = Parser.call(parser, context)
   """
-  def digits() do
-    many(digit(), min: 1, map: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end)
+  def digits(opts \\ []) do
+    label = Keyword.get(opts, :label, "#")
+
+    parser = many(digit(), min: 1, map: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end)
+    %{parser | description: "Digits<#{label}>"}
   end
 
 end

@@ -48,9 +48,7 @@ defmodule Ergo.Terminals do
           {truncated, _} = String.split_at(input, 20)
           %{ctx | status: {:error, :not_eoi}, message: "Input not empty: #{truncated}…"}
       end,
-      %{
-        parser: "eoi"
-      }
+      description: "eoi"
     )
   end
 
@@ -148,9 +146,7 @@ defmodule Ergo.Terminals do
             new_ctx
         end
       end,
-      %{
-        parser: "char"
-      }
+      description: "Char<#{char_to_string(c)}>"
     )
   end
 
@@ -174,9 +170,7 @@ defmodule Ergo.Terminals do
             err_ctx
         end
       end,
-      %{
-        parser: "char"
-      }
+      description: "!Char<#{char_to_string(c)}>"
     )
   end
 
@@ -198,9 +192,7 @@ defmodule Ergo.Terminals do
             new_ctx
         end
       end,
-      %{
-        parser: "char"
-      }
+      description: "Char<#{char_to_string(min)}..#{char_to_string(max)}>"
     )
   end
 
@@ -223,9 +215,7 @@ defmodule Ergo.Terminals do
           end)
         end
       end,
-      %{
-        parser: "char"
-      }
+      description: "Char<#{inspect(l)}>"
     )
   end
 
@@ -270,7 +260,7 @@ defmodule Ergo.Terminals do
       %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", char: 0, input: "", index: 0, line: 1, col: 1}
   """
   def digit() do
-    char(?0..?9)
+    %{char(?0..?9) | description: "Digit"}
   end
 
   @doc """
@@ -300,7 +290,7 @@ defmodule Ergo.Terminals do
       %Context{status: {:error, :unexpected_char}, message: "Expected: [a..z, A..Z] Actual:  ", input: " World"}
   """
   def alpha() do
-    char([?a..?z, ?A..?Z])
+    %{char([?a..?z, ?A..?Z]) | description: "Alpha"}
   end
 
   @doc ~S"""
@@ -337,7 +327,7 @@ defmodule Ergo.Terminals do
       %Context{status: {:error, :unexpected_char}, message: "Expected: [\s, \t, \r, \n, \v] Actual: H", input: "Hello World"}
   """
   def ws() do
-    char([?\s, ?\t, ?\r, ?\n, ?\v])
+    %{char([?\s, ?\t, ?\r, ?\n, ?\v]) | description: "Char<\\s>"}
   end
 
   @doc ~S"""
@@ -375,7 +365,7 @@ defmodule Ergo.Terminals do
       %Context{status: {:error, :unexpected_char}, message: "Expected: [0..9, a..z, A..Z, _] Actual:  ", input: " Hello"}
   """
   def wc() do
-    char([?0..?9, ?a..?z, ?A..?Z, ?_])
+    %{char([?0..?9, ?a..?z, ?A..?Z, ?_]) | description: "Char<\\d>"}
   end
 
   @doc ~S"""
@@ -417,11 +407,7 @@ defmodule Ergo.Terminals do
             %{err_ctx | message: "#{message} [in literal \"#{s}\"#{label}]"}
         end
       end,
-      %{
-        parser: "literal",
-        target: s,
-        label: label
-      }
+      description: "Literal<#{s}>"
     )
   end
 

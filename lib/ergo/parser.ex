@@ -9,14 +9,15 @@ defmodule Ergo.Parser do
   """
   defstruct [
     parser_fn: nil,
-    meta: %{}
+    description: "#"
   ]
 
   @doc ~S"""
   `new/2` creates a new `Parser` from the given parsing function and with the specified metadata.
   """
-  def new(parser_fn, meta \\ %{}) do
-    %Parser{parser_fn: parser_fn, meta: meta}
+  def new(parser_fn, meta \\ []) when is_function(parser_fn) do
+    %Parser{parser_fn: parser_fn}
+    |> Map.merge(Enum.into(meta, %{}))
   end
 
   @doc ~S"""
@@ -25,5 +26,18 @@ defmodule Ergo.Parser do
   """
   def call(%Parser{parser_fn: p}, %Context{} = ctx) do
     p.(Context.reset_status(ctx))
+  end
+
+  @doc ~S"""
+  `description/1` returns the description metadata for the parser.
+
+  ## Examples
+
+      iex> parser = Parser.new(identity, %{description: "Not a parser at all"})
+      iex> Ergo.Parser.description(parser)
+      "Not a parser at all"
+  """
+  def description(%Parser{description: description}) do
+    description
   end
 end
