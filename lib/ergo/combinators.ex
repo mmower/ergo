@@ -32,7 +32,7 @@ defmodule Ergo.Combinators do
       iex> Parser.call(parser, context)
       %Context{status: :ok, ast: "Hello", input: " World", char: ?o, index: 5, col: 6}
 
-      # iex> Logger.disable(self())
+      iex> Logger.disable(self())
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Terminals, Combinators}
       iex> context = Context.new("Hello World")
@@ -191,6 +191,7 @@ defmodule Ergo.Combinators do
   @doc ~S"""
   ## Examples
 
+      iex> Logger.disable(self())
       iex> alias Ergo.{Context, Combinators, Parser}
       iex> context = Context.new("Hello World")
       iex> parser = Combinators.many(Ergo.Terminals.wc(), label: "Chars", debug: true)
