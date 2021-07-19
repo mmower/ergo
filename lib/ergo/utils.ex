@@ -1,5 +1,4 @@
 defmodule Ergo.Utils do
-
   @doc """
   ## Examples
 

@@ -9,13 +9,15 @@ There are already at least two mature parser combinator libraries for Elixir: [N
 
 First I am learning about writing parsers with parser combinators and implementing my own seemed like a good way to learn more. I was especially motivated by Saša Jurić's talk where he [builds up parser combinators from the ground up](https://www.youtube.com/watch?v=xNzoerDljjo). Ergo owes quite a lot to his style.
 
-Second the code of both NimbleParsec and ExSpirit is, given my relatively limited experience of Elixir, a little hard to digest. I wanted to handle errors better than I'd seen in any of the examples (which seemed to ignore this issue) and finding the code hard to understand made it difficult to do that. Ergo is built with better error handling in mind.
+Second the code of both ExSpirit & NimbleParsec is, given my relatively limited experience of Elixir, a little hard to digest. I wanted to handle errors better than I'd seen in any of their examples (which seemed to ignore this issue) and finding the code hard to understand made it difficult to do that.
 
-There are a couple of other notable differences between Ergo and NP/ExS:
+So there are some notable differences between Ergo and NP/ExS that perhaps justify its existence:
 
-Firstly, Ergo is implemented in terms of functions only, while those libraries make significant use of macros. My understanding is not sophisticated enough to understand what the macros are buying the user.
+Firstly, and perhaps most difficult to notice, is that Ergo is implemented in terms of functions only, while ExS/NP both make significant use of macros. My understanding is not sophisticated enough to understand quite what the macros are buying the user but I was able to do without them. But I find the Ergo code relatively easy to read after writing it.
 
-Secondlly, NP & ExS make heavy use of the Elixir `|>` operator to combine parsers together, for example:
+Second Ergo is built with error handling as a priority. I've had challenges building parsers and want something that helps figure out why a parser isn't working. So an Ergo parser is not a bare anoymous function but a `Parser` struct that also contains descriptive information and most parsers can take a `debug:` and `label:` parameter to print out useful debugging information as the parser is running. Creating a parser with `debug: true` should emit enough diagnostic information to determine why a parser isn't working as expected.
+
+Lastly, ExS/NP make heavy use of the Elixir `|>` operator to combine parsers together, for example:
 
         act =
             string("Act")
@@ -52,7 +54,7 @@ while in Ergo style you'd write:
 
 Perhaps unsurprisingly I prefer the Ergo style.
 
-That said, if you have serious parsing intentions you should probably be using one of NimbleParsec or ExSpirit instead of Ergo. Ergo is likely less complete, less reliable, and less performant than either of those more established libraries.
+That said, if you have serious parsing intentions you should probably be using one of NimbleParsec or ExSpirit instead of Ergo. Ergo is likely less complete, less reliable, and certainly less performant than either of those more established libraries.
 
 Also note that this is the second attempt I've made at building such a library. The first, Epic, was not completed and, on reflection, not good maintanable code. I did, however, learn a great deal in building it and that learning has put Ergo on a much firmer footing.
 
@@ -64,46 +66,119 @@ The phrase __parser combinator__ sounded a little confusing when I first came ac
 
 In Ergo we distinguish between **terminal** parsers and **combinator** parsers. The difference is that a combinator parser is parameterised by one or more other parsers (which may themselves be either a terminal or another combinator parser). Here is an example:
 
-The terminal parser `digit` reads a single digit character (i.e. '0'..'9') from the input. We might use it like:
+The terminal parser `digit` reads a single digit character (i.e. '0'..'9') from the input. We don't have to concern ourselves right now with how it does this, or where that digit goes, suffice to say that somehow:
 
-    digit("1") = 49
-
-Where 49 is the ASCII code for the digit "1". The actual code for using the parser looks a little different but it's conceptually right. 
-
-The combinator parser `many` takes the parser it is meant to use and attempts to match it repeatedly on the input:
-
-    many(digit, "123") => [49, 50, 51]
+    parse(digit(), "1")
     
-Here the `digit` parser was successful 3 times and returns the code for digits '1', '2', and '3' respectively in a list. Alternatively we could have used a parser like `alpha` that parses letters.
+Will parse the 1 from the input and generate 49 (the UTF-8 code for the digit 1) in return.
 
-    many(alpha, "abc") => [97, 98, 99]
+The combinator parser `many` takes a parser to apply and attempts to apply it repeatedly on the input. it is meant to use and attempts to match it repeatedly on the input. So that, for example:
+
+    parse(many(digit()), "123")
     
-Where of course 97-99 are the codes for the letters a-c.
+Will parse the digits "1", "2", and "3" and generate the list `[49, 50, 51]` (respectively the UTF-8 codes for those digits).
 
+Alternatively we could have used a parser like `alpha` that parses letters.
+
+    parse(many(alpha()), "abc")
+    
+Will parse the alphanumeric characters "a", "b", and "c" to generate the list `[97, 98, 99]`.
+    
 Where things get interesting is when we pass combinator parsers to other combinator parsers. Let's add `sequence` which takes a list of parsers and attempt to use each in turn:
 
-    sequence([many(alpha), many(digit)], "abc123") => [97, 98, 99, 49, 50, 51]
+    parse(sequence([many(alpha()), many(digits())]), "abc123")
     
-In this way we can create increasingly complex parsers by combining simpler parsers.
+Here we pass the parser `many(alpha())` and the parser `many(digit())` to the parser `sequence` which will, in turn, generate the list `[[97, 98, 99], [49, 50, 51]]` for that input.
+
+In this fashion we can build more and more complex parsers by combining together simpler ones..
 
 # Using Ergo
 
-## Setting up to parse
+## Installing
 
-Ergo parsers operate on a `Context` record that will be described in the next session but which holds both the input text to be parsed and the data that is parsed from it. To begin we need to setup a new context:
+Add Ergo to your mix.exs file:
+
+    {:ergo, "~> 0.2"}
+
+Then run
+
+    mix deps.get
+    
+## A Basic Parser
+
+Let's create a simple parser as an exercise, it will parser a number, e.g. 42, 5.0, -2.7, or 0 and turn it into it's equivalent Elixir integer or float value:
+
+    alias Ergo.{Context, Parser}
+    import Ergo.{Terminals, Combinators, Parsers}
+    
+    number_parser =
+      sequence(
+        [
+          optional(char(?-), map: fn _ -> -1 end, label: "-?"),
+          choice([
+            decimal(),
+            uint()
+           ],
+          label: "[i|d]"
+          )
+        ],
+        label: "number",
+        map: &Enum.product/1
+      )
+    
+    Ergo.parse(number_parser, "42")
+    
+This parser uses a sequence that checks for an optional leading minus and then a choice to select between either a decimal or integer value.
+
+If there is a minus the match gets mapped from a character into the value -1.
+
+The choice tries the decimal parser first to ensure that we don't accidentally match "123." as the integer "123". If there is no decimal point it fails and tries the integer route.
+
+At this point the sequence AST will look something like: [-1, 16.0] or [42] and we use `Enum.product` to combine to get the final value, e.g. 42.
+
+Ergo.parse returns a fully-matched `Context` e.g.
+
+    %Context{status: :ok, ast: 42}
+    
+    %Context{status: {:error, :unexpected_char}, message: message, line: line, col: col}
+    
+## Debugging your parser
+
+As parsers become more complex it can be difficult to work out why they fail to work properly for a given input. Ergo parsers can, by default, generate debugging information to tell you about what is happening and what decisions are being made. To use this feature call the parse function as follows:
+
+    Ergo.parse(parser, input, debug: true)
+    
+
+
+## What is a parser?
+
+As with most parser combinator libraries, Ergo parsers are anonymous functions parameterized by inputs. However Ergo parser functions are wrapped in a struct:
+
+    Ergo.Parser
+    
+That holds the parser function and can contain additional descriptive metadata. By default a description is created.
+
+## The Context
+
+Ergo parsers operate on a `Context` struct that gets passed from parser to parser. We can create the context directly:
 
     alias Ergo.Context
-    ctx = Context.new("string to be pared")
+    ctx = Context.new("string to be parsed")
     
-This `Context` `ctx` is now ready to passed into a parser. Afterwards you should check the `status` field of the context to determine whether the parser was successful or whether it encountered an error.
+Although you will rarely need to do so as there is a helper function `Ergo.parse` that will do that for you:
 
-To create a parser you use the parser builder functions, for example:
-
-    parser = sequence([digit(), alpha(), digit()])
+    Ergo.parse(parser, "string to be parsed")
     
-Then call the resulting parser with the context.
+Ergo can send debugging information to the Elixir Logger which can be helpful in figuring out why a parser is not working as expected. E.g.
 
-    {status :ok} = parser.(ctx)
+    Ergo.parse(parser, "string to be parsed", debug: true)
+
+The `status` field of the context will always be either `:ok` or a tuple of `{:error, :error_atom}`.
+
+The parser can build up a datastructure to return by modifying the `ast` value of the context. The `sequence` parser, for example, creates a list of all matching parsers, e.g.
+
+    Ergo.parse(sequence([uint(), ignore(char(?,)), uint()]), "1,3")
+    => %Context{status: :ok, ast: [1, 3]}
     
 ## The Context in detail
 
@@ -117,6 +192,7 @@ At the heart of Ergo is the `Context` record. All Ergo parser functions take and
     col
     char
     ast
+    debug
     
 ### status
 
@@ -145,6 +221,10 @@ The current column of the input line that the parser has reached.
 ### ast
 
 The data structure that the parser constructs from its input.
+
+# Parsers
+
+Ergo comes with a set of basic parsers with which you can assemble your own, more complex, parsers. These are in the form of terminal parsers, combinator parsers, and numeric parsers.
 
 ## Terminal Parsers
 
@@ -200,8 +280,9 @@ The `literal` parser is given a binary string and attempts to match it against t
 
 Example: literal("Ergo") matches the characters 'E', 'r', 'g', and 'o' from the input successively.
 
-## Utility parsers
+## Numeric parsers
 
+These are parsers that build on the terminal parsers to parse diffrent types of numeric values. 
 The utility parsers are technically terminal parsers, since they are not parameterised by a parser, but they are implemented in terms of some of the combinator parsers themselves and hence belong in a separate category.
 
 ### digits
@@ -215,6 +296,10 @@ The `uint` parser matches a series of digits from the input. If successful it re
 ### decimal
 
 The `decimal` parser matches a series of digits, separated by a single '.' from the input. If successful it returns wtih `status: :ok` and `ast` set to the floating point value of the number matched.
+
+### number
+
+The `number` parser builds upon the `uint` and `decimal` parsers to parse any kind of numeric value returning `status: :ok` and `ast` set to the integer or floating value of the number parsed.
 
 ## Combinator Parsers
 
@@ -314,7 +399,7 @@ The `not_lookahead/1` parser is the inverse of the `looakahead` parser in that i
     p = not_lookhead(literal("Hello"))
     p.(Context.new("Hello World")) -> %{status: {:error, :lookahead_fail}}
 
-## Installation
+## Documentation
 
 If [available in Hex](https://hex.pm/docs/publish), the package can be installed
 by adding `ergo` to your list of dependencies in `mix.exs`:
@@ -322,7 +407,7 @@ by adding `ergo` to your list of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:ergo, "~> 0.1.0"}
+    {:ergo, "~> 0.2.0"}
   ]
 end
 ```

@@ -25,45 +25,27 @@ defmodule Ergo.Combinators do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
-      iex> parser = choice([literal("Foo"), literal("Bar"), literal("Hello"), literal("World")], debug: false)
-      iex> Parser.call(parser, context)
+      iex> parser = choice([literal("Foo"), literal("Bar"), literal("Hello"), literal("World")], label: "Foo|Bar|Hello|World")
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: :ok, ast: "Hello", input: " World", char: ?o, index: 5, col: 6}
 
-      iex> Logger.disable(self())
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
-      iex> parser = choice([literal("Foo"), literal("Bar"), literal("Hello"), literal("World")], label: "Foo|Bar|Hello|World", debug: true)
-      iex> Parser.call(parser, context)
-      %Context{status: :ok, ast: "Hello", input: " World", char: ?o, index: 5, col: 6}
-
-      iex> alias Ergo.{Context, Parser}
-      iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
-      iex> parser = choice([literal("Foo"), literal("Bar")], debug: false)
-      iex> Parser.call(parser, context)
-      %Context{status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil, input: "Hello World"}
-
-      iex> Logger.disable(self())
-      iex> alias Ergo.{Context, Parser}
-      iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
-      iex> parser = choice([literal("Foo"), literal("Bar")], label: "Foo|Bar", debug: true)
-      iex> Parser.call(parser, context)
+      iex> parser = choice([literal("Foo"), literal("Bar")])
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil, input: "Hello World"}
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
-    debug = Keyword.get(opts, :debug, false)
     label = Keyword.get(opts, :label, "#")
     map_fn = Keyword.get(opts, :map, nil)
 
     Parser.new(
-      fn ctx ->
-        if debug, do: Logger.info("Trying Choice<#{label}> on [#{ellipsize(ctx.input, 20)}]")
-        with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx, debug) do
+      fn %Context{debug: debug, input: input} = ctx ->
+        if debug, do: Logger.info("Trying Choice<#{label}> on [#{ellipsize(input, 20)}]")
+
+        with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx) do
           if map_fn do
             %{new_ctx | ast: map_fn.(new_ctx.ast)}
           else
@@ -75,90 +57,70 @@ defmodule Ergo.Combinators do
     )
   end
 
-  defp apply_parsers_in_turn(parsers, ctx, debug) do
+  defp apply_parsers_in_turn(parsers, ctx) do
     Enum.reduce_while(
       parsers,
       %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil},
-      fn parser, ctx ->
-        if debug, do: log_parser(parser, ctx)
-        {_, ret_ctx} = rval = reduce_parsers(parser, ctx)
-        if debug, do: log_return(ret_ctx)
-        rval
+      fn parser, %Context{debug: debug} = ctx ->
+        case Parser.call(parser, ctx) do
+          %Context{status: :ok, ast: ast} = new_ctx ->
+            if debug, do: Logger.info("<-- Choice: [#{ast}]")
+            {:halt, %{new_ctx | message: nil}}
+
+          _ ->
+            {:cont, ctx}
+        end
       end
     )
-  end
-
-  defp reduce_parsers(%Parser{} = parser, %Context{} = ctx) do
-    case Parser.call(parser, ctx) do
-      %Context{status: :ok} = new_ctx ->
-        {:halt, %{new_ctx | message: nil}}
-
-      _ ->
-        {:cont, ctx}
-    end
-  end
-
-  def log_parser(parser, ctx) do
-    Logger.debug("Trying #{Parser.description(parser)} on [#{ellipsize(ctx.input, 20)}]")
-  end
-
-  def log_return(%Context{status: status}) do
-    Logger.debug("<- #{inspect(status)}")
   end
 
   @doc ~S"""
 
   ## Examples
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
       iex> parser = sequence([literal("Hello"), ws(), literal("World")])
-      iex> Parser.call(parser, context)
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: :ok, ast: ["Hello", ?\s, "World"], char: ?d, index: 11, line: 1, col: 12}
 
       iex> Logger.disable(self())
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
-      iex> parser = sequence([literal("Hello"), ws(), literal("World")], label: "HelloWorld", debug: true)
-      iex> Parser.call(parser, context)
-      %Context{status: :ok, ast: ["Hello", ?\s, "World"], char: ?d, index: 11, line: 1, col: 12}
+      iex> parser = sequence([literal("Hello"), ws(), literal("World")], label: "HelloWorld")
+      iex> Ergo.parse(parser, "Hello World", debug: true)
+      %Context{status: :ok, debug: true, ast: ["Hello", ?\s, "World"], char: ?d, index: 11, line: 1, col: 12}
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
       iex> parser = sequence([literal("Hello"), ws(), literal("World")], map: fn ast -> Enum.join(ast, " ") end)
-      iex> Parser.call(parser, context)
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: :ok, ast: "Hello 32 World", char: ?d, index: 11, line: 1, col: 12}
 
       iex> Logger.disable(self())
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
-      iex> parser = sequence([literal("Hello"), ws(), literal("World")], label: "HelloWorld", debug: true, map: fn ast -> Enum.join(ast, " ") end)
-      iex> Parser.call(parser, context)
-      %Context{status: :ok, ast: "Hello 32 World", char: ?d, index: 11, line: 1, col: 12}
+      iex> parser = sequence([literal("Hello"), ws(), literal("World")], label: "HelloWorld", map: fn ast -> Enum.join(ast, " ") end)
+      iex> Ergo.parse(parser, "Hello World", debug: true)
+      %Context{status: :ok, debug: true, ast: "Hello 32 World", char: ?d, index: 11, line: 1, col: 12}
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
-      iex> context = Context.new("Hello World")
       iex> parser = sequence([literal("foo"), ws(), literal("bar")])
-      iex> assert %Context{status: {:error, :unexpected_char}} = Parser.call(parser, context)
+      iex> assert %Context{status: {:error, :unexpected_char}} = Ergo.parse(parser, "Hello World")
   """
   def sequence(parsers, opts \\ [])
 
   def sequence(parsers, opts) when is_list(parsers) do
-    debug = Keyword.get(opts, :debug, false)
     label = Keyword.get(opts, :label, "#")
     map_fn = Keyword.get(opts, :map, nil)
 
     Parser.new(
-      fn ctx ->
-        if debug, do: Logger.info("Trying Sequence<#{label}> on [#{ellipsize(ctx.input, 20)}]")
+      fn %Context{debug: debug, input: input} = ctx ->
+        if debug, do: Logger.info("Trying Sequence<#{label}> on [#{ellipsize(input, 20)}]")
 
-        with %Context{status: :ok} = new_ctx <- sequence_reduce(parsers, ctx, debug) do
-          if debug, do: log_return(new_ctx)
+        with %Context{status: :ok} = new_ctx <- sequence_reduce(parsers, ctx) do
+          if debug, do: Logger.info("Sequence matched")
           # We reject nils from the AST since they represent ignored values
           new_ctx
           |> Context.ast_without_ignored()
@@ -166,7 +128,7 @@ defmodule Ergo.Combinators do
           |> Context.ast_transform(map_fn)
         else
           err_ctx ->
-            if debug, do: log_return(err_ctx)
+            if debug, do: Logger.info("Sequence failed to match")
             err_ctx
         end
       end,
@@ -178,9 +140,8 @@ defmodule Ergo.Combinators do
     raise "You must supply at least one parser to sequence/2"
   end
 
-  defp sequence_reduce(parsers, %Context{} = ctx, debug) when is_list(parsers) do
+  defp sequence_reduce(parsers, %Context{} = ctx) when is_list(parsers) do
     Enum.reduce_while(parsers, %{ctx | ast: []}, fn parser, ctx ->
-      if debug, do: Logger.info("Trying #{Parser.description(parser)} on: [#{ellipsize(ctx.input, 20)}]")
       case Parser.call(parser, ctx) do
         %Context{status: :ok, ast: ast} = new_ctx -> {:cont, %{new_ctx | ast: [ast | ctx.ast]}}
         err_ctx -> {:halt, err_ctx}
@@ -192,37 +153,33 @@ defmodule Ergo.Combinators do
   ## Examples
 
       iex> Logger.disable(self())
-      iex> alias Ergo.{Context, Combinators, Parser}
-      iex> context = Context.new("Hello World")
-      iex> parser = Combinators.many(Ergo.Terminals.wc(), label: "Chars", debug: true)
-      iex> Parser.call(parser, context)
-      %Context{status: :ok, ast: [?H, ?e, ?l, ?l, ?o], input: " World", index: 5, col: 6, char: ?o}
-
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
-      iex> context = Context.new("Hello World")
+      iex> parser = many(wc(), label: "Chars")
+      iex> Ergo.parse(parser, "Hello World", debug: true)
+      %Context{status: :ok, debug: true, ast: [?H, ?e, ?l, ?l, ?o], input: " World", index: 5, col: 6, char: ?o}
+
+      iex> alias Ergo.Context
+      iex> import Ergo.{Combinators, Terminals}
       iex> parser = many(wc(), min: 6)
-      iex> Parser.call(parser, context)
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: {:error, :many_less_than_min}, ast: nil, input: " World", char: ?o, index: 5, col: 6}
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Combinators, Terminals}
-      iex> context = Context.new("Hello World")
       iex> parser = many(wc(), max: 3)
-      iex> Parser.call(parser, context)
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: :ok, ast: [?H, ?e, ?l], input: "lo World", char: ?l, index: 3, col: 4}
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Combinators, Terminals}
-      iex> context = Context.new("Hello World")
       iex> parser = many(wc(), map: &Enum.count/1)
-      iex> Parser.call(parser, context)
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: :ok, ast: 5, input: " World", index: 5, col: 6, char: ?o}
   """
   def many(parser, opts \\ [])
 
   def many(%Parser{} = parser, opts) do
-    debug = Keyword.get(opts, :debug, false)
     label = Keyword.get(opts, :label, "#")
 
     min = Keyword.get(opts, :min, 0)
@@ -230,10 +187,10 @@ defmodule Ergo.Combinators do
     map_fn = Keyword.get(opts, :map, nil)
 
     Parser.new(
-      fn ctx ->
-        if debug, do: Logger.info("Trying Many<#{label}> on [#{ellipsize(ctx.input, 20)}]")
+      fn %Context{debug: debug, input: input} = ctx ->
+        if debug, do: Logger.info("Trying Many<#{label}> on [#{ellipsize(input, 20)}]")
 
-        with %Context{status: :ok} = new_ctx <- parse_many(parser, %{ctx | ast: []}, min, max, 0, debug) do
+        with %Context{status: :ok} = new_ctx <- parse_many(parser, %{ctx | ast: []}, min, max, 0) do
           new_ctx
           |> Context.ast_without_ignored()
           |> Context.ast_in_parsed_order()
@@ -244,10 +201,9 @@ defmodule Ergo.Combinators do
     )
   end
 
-  def parse_many(%Parser{} = parser, %Context{} = ctx, min, max, count, debug)
+  def parse_many(%Parser{} = parser, %Context{} = ctx, min, max, count)
       when is_integer(min) and min >= 0 and ((is_integer(max) and max > min) or max == :infinity) and
              is_integer(count) do
-    if debug, do: Logger.info("Trying #{Parser.description(parser)} on [#{ellipsize(ctx.input, 20)}]")
     case Parser.call(parser, ctx) do
       %Context{status: {:error, _}} ->
         if count < min do
@@ -260,7 +216,7 @@ defmodule Ergo.Combinators do
         if max != :infinity && count == max - 1 do
           %{new_ctx | ast: [new_ctx.ast | ctx.ast]}
         else
-          parse_many(parser, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}, min, max, count + 1, debug)
+          parse_many(parser, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}, min, max, count + 1)
         end
     end
   end
@@ -282,18 +238,30 @@ defmodule Ergo.Combinators do
       iex> parser = optional(literal("Hello"))
       iex> Parser.call(parser, context)
       %Context{status: :ok, ast: nil, input: " World", index: 0, col: 1, char: 0}
+
   """
   def optional(%Parser{} = parser, opts \\ []) do
-    debug = Keyword.get(opts, :debug, false)
     label = Keyword.get(opts, :label, "#")
+    map_fn = Keyword.get(opts, :map, nil)
 
     Parser.new(
-      fn ctx ->
-        if debug, do: Logger.info("Trying Optional<#{label}> on [#{ellipsize(ctx.input, 20)}]")
+      fn %Context{debug: debug, input: input} = ctx ->
+        if debug, do: Logger.info("Trying Optional<#{label}> on [#{ellipsize(input, 20)}]")
 
         case Parser.call(parser, ctx) do
-          %Context{status: :ok} = new_ctx -> new_ctx
-          _ -> %{ctx | ast: nil}
+          %Context{status: :ok, ast: ast} = new_ctx ->
+            if debug, do: Logger.info("<- Matched: [#{ast}]")
+
+            if map_fn do
+              mapped_ast = map_fn.(ast)
+              if debug, do: Logger.info("<- Return [#{mapped_ast}]")
+              %{new_ctx | ast: mapped_ast}
+            else
+              new_ctx
+            end
+
+          _ ->
+            %{ctx | status: :ok}
         end
       end,
       description: "Optional<#{label}>"
@@ -307,16 +275,17 @@ defmodule Ergo.Combinators do
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
       iex> parser = sequence([literal("Hello"), ignore(ws()), literal("World")])
-      iex> Parser.call(parser, context)
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: :ok, ast: ["Hello", "World"], index: 11, col: 12, char: ?d}
   """
   def ignore(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "#")
 
     Parser.new(
-      fn ctx ->
+      fn %Context{debug: debug, input: input} = ctx ->
+        if debug, do: Logger.info("Trying Ignore<#{label}> on [#{ellipsize(input, 20)}]")
+
         with %Context{status: :ok} = new_ctx <- Parser.call(parser, ctx) do
           %{new_ctx | ast: nil}
         end
@@ -345,9 +314,13 @@ defmodule Ergo.Combinators do
     label = Keyword.get(opts, :label, "#")
 
     Parser.new(
-      fn ctx ->
-        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do
-          %{new_ctx | ast: t_fn.(ast)}
+      fn %Context{debug: debug, ast: ast} = ctx ->
+        if debug, do: Logger.info("Trying Transform<#{label}> on [#{ast}]")
+
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx),
+             tranformed_ast <- t_fn.(ast) do
+          if debug, do: Logger.info("<-- Transformed to: [#{tranformed_ast}]")
+          %{new_ctx | ast: tranformed_ast}
         end
       end,
       description: "Transform<#{label}>"
@@ -359,25 +332,24 @@ defmodule Ergo.Combinators do
 
   ## Example
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
-      iex> context = Context.new("Hello World")
       iex> parser = lookahead(literal("Hello"))
-      iex> Parser.call(parser, context)
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: :ok, ast: nil, input: "Hello World", char: 0, index: 0, line: 1, col: 1}
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
-      iex> context = Context.new("Hello World")
       iex> parser = lookahead(literal("Helga"))
-      iex> Parser.call(parser, context)
+      iex> Ergo.parse(parser, "Hello World")
       %Context{status: {:error, :lookahead_fail}, ast: [?l, ?e, ?H], char: ?l, index: 3, col: 4, input: "lo World"}
   """
   def lookahead(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "#")
 
     Parser.new(
-      fn ctx ->
+      fn %Context{debug: debug, input: input} = ctx ->
+        if debug, do: Logger.info("Trying Lookahead<#{label}> on [#{ellipsize(input, 20)}]")
         case Parser.call(parser, ctx) do
           %Context{status: :ok} -> %{ctx | ast: nil}
           bad_ctx -> %{bad_ctx | status: {:error, :lookahead_fail}, message: nil}
@@ -394,25 +366,24 @@ defmodule Ergo.Combinators do
 
   ## Examples
 
-    iex> alias Ergo.{Context, Parser}
+    iex> alias Ergo.Context
     iex> import Ergo.{Combinators, Terminals}
-    iex> context = Context.new("Hello World")
     iex> parser = not_lookahead(literal("Foo"))
-    iex> Parser.call(parser, context)
+    iex> Ergo.parse(parser, "Hello World")
     %Context{status: :ok, input: "Hello World"}
 
     iex> alias Ergo.{Context, Parser}
     iex> import Ergo.{Combinators, Terminals}
-    iex> context = Context.new("Hello World")
     iex> parser = not_lookahead(literal("Hello"))
-    iex> Parser.call(parser, context)
+    iex> Ergo.parse(parser, "Hello World")
     %Context{status: {:error, :lookahead_fail}, input: "Hello World"}
   """
   def not_lookahead(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "#")
 
     Parser.new(
-      fn ctx ->
+      fn %Context{debug: debug, input: input} = ctx ->
+        if debug, do: Logger.info("Trying NotLookahead<#{label}> on [#{ellipsize(input, 20)}]")
         case Parser.call(parser, ctx) do
           %Context{status: {:error, _}} -> %{ctx | status: :ok}
           %Context{} -> %{ctx | status: {:error, :lookahead_fail}, message: nil}

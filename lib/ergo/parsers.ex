@@ -1,6 +1,7 @@
 defmodule Ergo.Parsers do
   alias Ergo.{Context, Parser}
-  import Ergo.{Terminals, Combinators}
+  import Ergo.{Terminals, Combinators, Utils}
+  require Logger
 
   @moduledoc """
   The Parsers module exists to house utility parsers that while they are terminals in the sense that they are not parameterised, they internally make use of parsers from the Combinators module.
@@ -31,7 +32,8 @@ defmodule Ergo.Parsers do
     parser = digits()
 
     Parser.new(
-      fn ctx ->
+      fn %Context{input: input, debug: debug} = ctx ->
+        if debug, do: Logger.info("Trying UInt<#{label}> on #{ellipsize(input, 20)}")
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do
           uint_value = ast |> Enum.join("") |> String.to_integer()
           %{new_ctx | ast: uint_value}
@@ -55,10 +57,11 @@ defmodule Ergo.Parsers do
   """
   def decimal(opts \\ []) do
     label = Keyword.get(opts, :label, "#")
-    parser = sequence([digits(), ignore(char(?.)), digits()])
+    parser = sequence([digits(), ignore(char(?.)), digits()], label: "ddd.dd")
 
     Parser.new(
-      fn ctx ->
+      fn %Context{input: input, debug: debug} = ctx ->
+        if debug, do: Logger.info("Trying Decimal<#{label}> on [#{ellipsize(input, 20)}]")
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do
           [i_part | [d_part]] = ast
           i_val = i_part |> Enum.join("")
@@ -89,6 +92,56 @@ defmodule Ergo.Parsers do
 
     parser = many(digit(), min: 1, map: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end)
     %{parser | description: "Digits<#{label}>"}
+  end
+
+  @doc ~S"""
+  The `number` parser matches both integer and decimal string and converts them into their
+  appropriate Elixir integer or float values.
+
+  ## Examples
+
+      iex> import Ergo.Parsers
+      iex> assert %{status: :ok, ast: 42} = Ergo.parse(number(), "42")
+
+      iex> import Ergo.Parsers
+      iex> assert %{status: :ok, ast: -42} = Ergo.parse(number(), "-42")
+
+      iex> import Ergo.Parsers
+      iex> assert %{status: :ok, ast: 42.0} = Ergo.parse(number(), "42.0")
+
+      iex> import Ergo.Parsers
+      iex> assert %{status: :ok, ast: -42.0} = Ergo.parse(number(), "-42.0")
+
+      iex> import Ergo.Parsers
+      iex> assert %{status: :ok, ast: 0} = Ergo.parse(number(), "0")
+
+      iex> import Ergo.Parsers
+      iex> assert %{status: :ok, ast: 0} = Ergo.parse(number(), "0000")
+
+      iex> import Ergo.Parsers
+      iex> assert %{status: {:error, _}} = Ergo.parse(number(), "Fourty Two")
+
+      iex> import Ergo.Parsers
+      iex> assert %{status: :ok, ast: 42} = Ergo.parse(number(), "42Fourty Two")
+  """
+  def number(opts \\ []) do
+    label = Keyword.get(opts, :label, "#")
+
+    parser = sequence(
+      [
+        optional(char(?-), map: fn _ -> -1 end, label: "-?"),
+        choice([
+          decimal(),
+          uint()
+         ],
+        label: "[i|d]"
+        )
+      ],
+      label: "Number<#{label}>",
+      map: &Enum.product/1
+    )
+
+    %{parser | description: "Number<#{label}>"}
   end
 
 end

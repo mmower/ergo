@@ -40,4 +40,5 @@ defmodule Ergo.Parser do
   def description(%Parser{description: description}) do
     description
   end
+
 end

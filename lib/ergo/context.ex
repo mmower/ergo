@@ -42,7 +42,8 @@ defmodule Ergo.Context do
 
   """
 
-  defstruct status: :ok,
+  defstruct debug: false,
+            status: :ok,
             message: nil,
             input: "",
             index: 0,
@@ -59,8 +60,8 @@ defmodule Ergo.Context do
     iex> Context.new("Hello World")
     %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0}
   """
-  def new(s) when is_binary(s) do
-    %Context{input: s}
+  def new(input, debug \\ false) when is_binary(input) do
+    %Context{input: input, debug: debug}
   end
 
   @doc """
