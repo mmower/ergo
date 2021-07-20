@@ -64,7 +64,7 @@ defmodule Ergo.Combinators do
       fn parser, %Context{debug: debug} = ctx ->
         case Parser.call(parser, ctx) do
           %Context{status: :ok, ast: ast} = new_ctx ->
-            if debug, do: Logger.info("<-- Choice: [#{ast}]")
+            if debug, do: Logger.info("<-- Choice: [#{inspect(ast)}]")
             {:halt, %{new_ctx | message: nil}}
 
           _ ->
@@ -250,11 +250,11 @@ defmodule Ergo.Combinators do
 
         case Parser.call(parser, ctx) do
           %Context{status: :ok, ast: ast} = new_ctx ->
-            if debug, do: Logger.info("<- Matched: [#{ast}]")
+            if debug, do: Logger.info("<- Matched: [#{inspect(ast)}]")
 
             if map_fn do
               mapped_ast = map_fn.(ast)
-              if debug, do: Logger.info("<- Return [#{mapped_ast}]")
+              if debug, do: Logger.info("<- Return [#{inspect(mapped_ast)}]")
               %{new_ctx | ast: mapped_ast}
             else
               new_ctx
@@ -315,11 +315,11 @@ defmodule Ergo.Combinators do
 
     Parser.new(
       fn %Context{debug: debug, ast: ast} = ctx ->
-        if debug, do: Logger.info("Trying Transform<#{label}> on [#{ast}]")
+        if debug, do: Logger.info("Trying Transform<#{label}> on [#{inspect(ast)}]")
 
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx),
              tranformed_ast <- t_fn.(ast) do
-          if debug, do: Logger.info("<-- Transformed to: [#{tranformed_ast}]")
+          if debug, do: Logger.info("<-- Transformed to: [#{inspect(tranformed_ast)}]")
           %{new_ctx | ast: tranformed_ast}
         end
       end,
