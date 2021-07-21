@@ -6,8 +6,8 @@ defmodule Ergo.Context do
 
     defexception [:message]
 
-    def exception(track) do
-      %CycleError{message: "Ergo detected a cycle: #{inspect(track)}"}
+    def exception({_ref, description, _index, line, col}) do
+      %CycleError{message: "Ergo detected a cycle in parser #{description}: at #{line}:#{col}"}
     end
 
   end
@@ -50,6 +50,18 @@ defmodule Ergo.Context do
   * `ast`
 
   Represents the current data structure being built from the input.
+
+  * `debug`
+
+  When set to 'true' parsers will attempt to log their behaviours as they run using the Elixir Logger at the :info level.
+
+  * `tracks`
+
+  Parsers for which `track: true` is specified (by default this is most of the
+  combinator parsers but not the terminal parsers) will add themselves to the
+  `Context` tracks in the form of `{ref, index}`. If the same parser attempts
+  to add itself a second time at the same index an error is thrown because a
+  cycle has been detected.
 
   """
 
@@ -112,19 +124,19 @@ defmodule Ergo.Context do
       iex> import Ergo.{Terminals, Combinators}
       iex> context = Context.new("Hello World")
       iex> parser = many(char(?H))
-      iex> track = {parser.ref, 0}
-      iex> assert %Context{tracks: [^track]} = context2 = Context.update_tracks(context, parser.ref)
+      iex> track = {parser.ref, parser.description, 0, 1, 1}
+      iex> assert %Context{tracks: [^track]} = context2 = Context.update_tracks(context, parser.ref, parser.description)
       iex> parser2 = many(char(?e))
-      iex> track2 = {parser2.ref, 0}
-      iex> assert %Context{tracks: [^track2, ^track]} = Context.update_tracks(context2, parser2.ref)
+      iex> track2 = {parser2.ref, parser2.description, 0, 1, 1}
+      iex> assert %Context{tracks: [^track2, ^track]} = Context.update_tracks(context2, parser2.ref, parser2.description)
 
       Second example checks that we throw if we get a cycle
       iex> import Ergo.{Terminals, Combinators}
       iex> parser = many(choice([many(ws()), char(?})]))
       iex> assert_raise Ergo.Context.CycleError, fn -> Ergo.parse(parser, "}}}") end
   """
-  def update_tracks(%Context{index: index, tracks: tracks} = ctx, ref) do
-    new_track = {ref, index}
+  def update_tracks(%Context{index: index, line: line, col: col, tracks: tracks} = ctx, ref, description) do
+    new_track = {ref, description, index, line, col}
     if Enum.find(tracks, false, fn track -> new_track == track end) do
       raise Ergo.Context.CycleError, new_track
     else

@@ -26,10 +26,10 @@ defmodule Ergo.Parser do
   `call/2` invokes the specified parser by calling its parsing function with the specified context having
   first reset the context status.
   """
-  def call(%Parser{parser_fn: p, ref: ref, tracked: true}, %Context{} = ctx) do
+  def call(%Parser{parser_fn: p, description: description, ref: ref, tracked: true}, %Context{} = ctx) do
     ctx
     |> Context.reset_status()
-    |> Context.update_tracks(ref)
+    |> Context.update_tracks(ref, description)
     |> p.()
   end
 
