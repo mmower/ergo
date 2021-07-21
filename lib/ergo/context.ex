@@ -1,6 +1,17 @@
 defmodule Ergo.Context do
   alias __MODULE__
 
+  defmodule CycleError do
+    alias __MODULE__
+
+    defexception [:message]
+
+    def exception(track) do
+      %CycleError{message: "Ergo detected a cycle: #{inspect(track)}"}
+    end
+
+  end
+
   @moduledoc """
   `Ergo.Context` defines the `Context` record type and functions to create and manipulate them.
 
@@ -42,15 +53,16 @@ defmodule Ergo.Context do
 
   """
 
-  defstruct debug: false,
-            status: :ok,
+  defstruct status: :ok,
             message: nil,
             input: "",
             index: 0,
             line: 1,
             col: 1,
             char: 0,
-            ast: nil
+            ast: nil,
+            debug: false,
+            tracks: []
 
   @doc """
   Returns a newly initialised `Context` with `input` set to the string passed in.
@@ -58,7 +70,7 @@ defmodule Ergo.Context do
   ## Examples:
 
     iex> Context.new("Hello World")
-    %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0}
+    %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, debug: false, tracks: []}
   """
   def new(input, debug \\ false) when is_binary(input) do
     %Context{input: input, debug: debug}
@@ -88,6 +100,36 @@ defmodule Ergo.Context do
   """
   def reset_status(%Context{} = ctx) do
     %{ctx | status: :ok, ast: nil}
+  end
+
+  @doc ~S"""
+  We track which parsers have operated on the input.
+
+  ## Examples
+
+      First example checks that we keep references
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators}
+      iex> context = Context.new("Hello World")
+      iex> parser = many(char(?H))
+      iex> track = {parser.ref, 0}
+      iex> assert %Context{tracks: [^track]} = context2 = Context.update_tracks(context, parser.ref)
+      iex> parser2 = many(char(?e))
+      iex> track2 = {parser2.ref, 0}
+      iex> assert %Context{tracks: [^track2, ^track]} = Context.update_tracks(context2, parser2.ref)
+
+      Second example checks that we throw if we get a cycle
+      iex> import Ergo.{Terminals, Combinators}
+      iex> parser = many(choice([many(ws()), char(?})]))
+      iex> assert_raise Ergo.Context.CycleError, fn -> Ergo.parse(parser, "}}}") end
+  """
+  def update_tracks(%Context{index: index, tracks: tracks} = ctx, ref) do
+    new_track = {ref, index}
+    if Enum.find(tracks, false, fn track -> new_track == track end) do
+      raise Ergo.Context.CycleError, new_track
+    else
+      %{ctx | tracks: [new_track | tracks]}
+    end
   end
 
   @doc """

@@ -20,12 +20,10 @@ defmodule Ergo.NumericParsers do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.NumericParsers
-      iex> context = Context.new("2345")
-      iex> parser = uint()
-      iex> Parser.call(parser, context)
-      %Context{status: :ok, ast: 2345, char: ?5, index: 4, col: 5}
+      iex> context = Ergo.parse(uint(), "2345")
+      iex> assert %Context{status: :ok, ast: 2345, char: ?5, index: 4, col: 5} = context
   """
   def uint(opts \\ []) do
     label = Keyword.get(opts, :label, "#")
@@ -49,11 +47,10 @@ defmodule Ergo.NumericParsers do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.NumericParsers
-      iex> context = Context.new("234.56")
-      iex> parser = decimal()
-      iex> assert %Context{status: :ok, ast: 234.56} = Parser.call(parser, context)
+      iex> context = Ergo.parse(decimal(), "234.56")
+      iex> assert %Context{status: :ok, ast: 234.56} = context
   """
   def decimal(opts \\ []) do
     label = Keyword.get(opts, :label, "#")
@@ -81,11 +78,10 @@ defmodule Ergo.NumericParsers do
 
   ## Examples
 
-      iex> alias Ergo.{Context, Parser}
+      iex> alias Ergo.Context
       iex> import Ergo.NumericParsers
-      iex> context = Context.new("2345")
-      iex> parser = digits()
-      iex> assert %Context{status: :ok, ast: [2, 3, 4, 5]} = Parser.call(parser, context)
+      iex> context = Ergo.parse(digits(), "2345")
+      iex> assert %Context{status: :ok, ast: [2, 3, 4, 5]} = context
   """
   def digits(opts \\ []) do
     label = Keyword.get(opts, :label, "#")

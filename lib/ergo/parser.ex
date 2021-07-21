@@ -9,6 +9,8 @@ defmodule Ergo.Parser do
   """
   defstruct [
     parser_fn: nil,
+    ref: nil,
+    tracked: false,
     description: "#"
   ]
 
@@ -16,7 +18,7 @@ defmodule Ergo.Parser do
   `new/2` creates a new `Parser` from the given parsing function and with the specified metadata.
   """
   def new(parser_fn, meta \\ []) when is_function(parser_fn) do
-    %Parser{parser_fn: parser_fn}
+    %Parser{parser_fn: parser_fn, ref: make_ref()}
     |> Map.merge(Enum.into(meta, %{}))
   end
 
@@ -24,8 +26,17 @@ defmodule Ergo.Parser do
   `call/2` invokes the specified parser by calling its parsing function with the specified context having
   first reset the context status.
   """
-  def call(%Parser{parser_fn: p}, %Context{} = ctx) do
-    p.(Context.reset_status(ctx))
+  def call(%Parser{parser_fn: p, ref: ref, tracked: true}, %Context{} = ctx) do
+    ctx
+    |> Context.reset_status()
+    |> Context.update_tracks(ref)
+    |> p.()
+  end
+
+  def call(%Parser{parser_fn: p, tracked: false}, %Context{} = ctx) do
+    ctx
+    |> Context.reset_status()
+    |> p.()
   end
 
   @doc ~S"""

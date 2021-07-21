@@ -1,7 +1,13 @@
 # Ergo
-## Elixir Parser Combinators
-## Author: Matt Mower <matt@theartofnavigation.co.uk>
-## Version: 0.1.2
+Elixir Parser Combinators
+Author: Matt Mower <matt@theartofnavigation.co.uk>
+Version: 0.3.3
+
+## Getting Help
+
+If you decide to use Ergo and you want help please come find me in the [Elixir Discord](https://discord.gg/elixir) (where I am __sandbags__). Regardless, I would love to hear from you about problems and or suggestions for improvement.
+
+# What is Ergo?
 
 Ergo is an Elixir language parser combinator library. The name 'ergo' means 'therefore' means 'for that reason' which seemed appropriate for a parser.
 
@@ -15,7 +21,7 @@ So there are some notable differences between Ergo and NP/ExS that perhaps justi
 
 Firstly, and perhaps most difficult to notice, is that Ergo is implemented in terms of functions only, while ExS/NP both make significant use of macros. My understanding is not sophisticated enough to understand quite what the macros are buying the user but I was able to do without them. But I find the Ergo code relatively easy to read after writing it.
 
-Second Ergo is built with error handling as a priority. I've had challenges building parsers and want something that helps figure out why a parser isn't working. So an Ergo parser is not a bare anoymous function but a `Parser` struct that also contains descriptive information and most parsers can take a `debug:` and `label:` parameter to print out useful debugging information as the parser is running. Creating a parser with `debug: true` should emit enough diagnostic information to determine why a parser isn't working as expected.
+Second Ergo is built with error handling as one of its priorities. Internally, Ergo parsers are not bare functions but `Parser` structs that assist with debugging. This takes the form of logging parser operations and cycle detection. See further down for more information. 
 
 Lastly, ExS/NP make heavy use of the Elixir `|>` operator to combine parsers together, for example:
 
@@ -58,7 +64,7 @@ That said, if you have serious parsing intentions you should probably be using o
 
 Also note that this is the second attempt I've made at building such a library. The first, Epic, was not completed and, on reflection, not good maintanable code. I did, however, learn a great deal in building it and that learning has put Ergo on a much firmer footing.
 
-# Introduction
+# Introduction to Parser Combinators
 
 If you understand parser combinators you can safely skip this section.
 
@@ -148,7 +154,15 @@ As parsers become more complex it can be difficult to work out why they fail to 
 
     Ergo.parse(parser, input, debug: true)
     
+The various parsers will now use `Logger.info` to record information about how they are processing their inputs.
 
+A challenge when building parsers is accidentally creating a cycle where the parser will never finish but loop over the same input forever. For example:
+
+    many(choice([many(ws()), char(?})]))
+    
+Given an input like "}}}" will never finish. The inner many clause will always succeed with 0 whitespace characters and never actually process the `char` parser at all. You wouldn't deliberately set out to write such a parser but it can happen or at least it seems to happen to me.
+
+For this reason Ergo implements cycle detection. Parsers with the `track: true` option (which includes most of the combinator parsers) record in the context when they have run and the current index into the input. If the same parser is run a second time on the same input we know we have hit a cycle and an `Ergo.Context.CycleError` will be raised.
 
 ## What is a parser?
 
