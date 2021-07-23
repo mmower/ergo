@@ -6,10 +6,18 @@ defmodule Ergo.Context do
 
     defexception [:message]
 
-    def exception({_ref, description, _index, line, col}) do
-      %CycleError{message: "Ergo detected a cycle in parser #{description}: at #{line}:#{col}"}
-    end
+    def exception({{_ref, description, _index, line, col}, %{tracks: tracks}}) do
+      message =
+        Enum.reduce(
+          tracks,
+          "Ergo has detected a cycle in #{description} and is aborting parsing at: #{line}:#{col}",
+          fn {_ref, description, _index, _line, _col}, msg ->
+            msg <> "\n#{description}"
+          end
+        )
 
+      %CycleError{message: message}
+    end
   end
 
   @moduledoc """
@@ -135,10 +143,15 @@ defmodule Ergo.Context do
       iex> parser = many(choice([many(ws()), char(?})]))
       iex> assert_raise Ergo.Context.CycleError, fn -> Ergo.parse(parser, "}}}") end
   """
-  def update_tracks(%Context{index: index, line: line, col: col, tracks: tracks} = ctx, ref, description) do
+  def update_tracks(
+        %Context{index: index, line: line, col: col, tracks: tracks} = ctx,
+        ref,
+        description
+      ) do
     new_track = {ref, description, index, line, col}
+
     if Enum.find(tracks, false, fn track -> new_track == track end) do
-      raise Ergo.Context.CycleError, new_track
+      raise Ergo.Context.CycleError, {new_track, ctx}
     else
       %{ctx | tracks: [new_track | tracks]}
     end
