@@ -1,9 +1,10 @@
 defmodule Ergo do
-  alias Ergo.{Context, Parser}
+  @moduledoc "README.md"
+             |> File.read!()
+             |> String.split("<!-- MDOC !-->")
+             |> Enum.fetch!(1)
 
-  @moduledoc ~S"""
-  `Ergo` contains the helper function `parse/2` otherwise see `Ergo.Terminals`, `Ergo.Combinators` and `Ergo.Parsers` for the individual parsers.
-  """
+  alias Ergo.{Context, Parser}
 
   @doc ~S"""
   The `parser/2` function is a simple entry point to parsing inputs that constructs the Context record required.
@@ -22,5 +23,4 @@ defmodule Ergo do
     debug = Keyword.get(opts, :debug, false)
     Parser.call(parser, Context.new(input, debug))
   end
-
 end

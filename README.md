@@ -1,7 +1,11 @@
 # Ergo
+
+[Online Documentation](https://hexdocs.pm/ergo/)
+
+<!-- MDOC !-->
 Elixir Parser Combinators
 Author: Matt Mower <matt@theartofnavigation.co.uk>
-Version: 0.3.3
+Version: 0.3.5
 
 ## Getting Help
 
@@ -25,38 +29,42 @@ Second Ergo is built with error handling as one of its priorities. Internally, E
 
 Lastly, ExS/NP make heavy use of the Elixir `|>` operator to combine parsers together, for example:
 
-        act =
-            string("Act")
-            |> replace(:act)
-            |> ignore(whitespace)
-            |> concat(id)
-            |> ignore(whitespace)
-            |> ignore(char(?{))
-            |> ignore(whitespace)
-            |> optional(attributes)
-            |> ignore(whitespace)
-            |> concat(scene)
-            |> repeat(ignore(whitespace) |> concat(scene))
-            |> ignore(whitespace)
-            |> ignore(char(?}))
-            |> wrap
+```elixir
+act =
+    string("Act")
+    |> replace(:act)
+    |> ignore(whitespace)
+    |> concat(id)
+    |> ignore(whitespace)
+    |> ignore(char(?{))
+    |> ignore(whitespace)
+    |> optional(attributes)
+    |> ignore(whitespace)
+    |> concat(scene)
+    |> repeat(ignore(whitespace) |> concat(scene))
+    |> ignore(whitespace)
+    |> ignore(char(?}))
+    |> wrap
+```
 
 while in Ergo style you'd write:
 
-        act =
-            sequence([
-                literal("Act", map: fn _ast -> :act end),
-                ignore(whitespace),
-                id,
-                ignore(whitespace),
-                ignore(char(?)),
-                ignore(whitespace),
-                optional(attribtues),
-                ignore(whitespace),
-                many(scene),
-                ignore(whitespace),
-                ignore(char(?}))
-            ])
+```elixir
+act =
+    sequence([
+        literal("Act", map: fn _ast -> :act end),
+        ignore(whitespace),
+        id,
+        ignore(whitespace),
+        ignore(char(?)),
+        ignore(whitespace),
+        optional(attribtues),
+        ignore(whitespace),
+        many(scene),
+        ignore(whitespace),
+        ignore(char(?}))
+    ])
+```
 
 Perhaps unsurprisingly I prefer the Ergo style.
 
@@ -114,25 +122,27 @@ Then run
 
 Let's create a simple parser as an exercise, it will parser a number, e.g. 42, 5.0, -2.7, or 0 and turn it into it's equivalent Elixir integer or float value:
 
-    alias Ergo.{Context, Parser}
-    import Ergo.{Terminals, Combinators, Parsers}
-    
-    number_parser =
-      sequence(
-        [
-          optional(char(?-), map: fn _ -> -1 end, label: "-?"),
-          choice([
-            decimal(),
-            uint()
-           ],
-          label: "[i|d]"
-          )
+```elixir
+alias Ergo.{Context, Parser}
+import Ergo.{Terminals, Combinators, Parsers}
+
+number_parser =
+    sequence(
+    [
+        optional(char(?-), map: fn _ -> -1 end, label: "-?"),
+        choice([
+        decimal(),
+        uint()
         ],
-        label: "number",
-        map: &Enum.product/1
-      )
-    
-    Ergo.parse(number_parser, "42")
+        label: "[i|d]"
+        )
+    ],
+    label: "number",
+    map: &Enum.product/1
+    )
+
+Ergo.parse(number_parser, "42")
+```
     
 This parser uses a sequence that checks for an optional leading minus and then a choice to select between either a decimal or integer value.
 
@@ -144,21 +154,29 @@ At this point the sequence AST will look something like: [-1, 16.0] or [42] and 
 
 Ergo.parse returns a fully-matched `Context` e.g.
 
-    %Context{status: :ok, ast: 42}
-    
-    %Context{status: {:error, :unexpected_char}, message: message, line: line, col: col}
+```elixir
+%Context{status: :ok, ast: 42}
+```
+
+```elixir 
+%Context{status: {:error, :unexpected_char}, message: message, line: line, col: col}
+```
     
 ## Debugging your parser
 
 As parsers become more complex it can be difficult to work out why they fail to work properly for a given input. Ergo parsers can, by default, generate debugging information to tell you about what is happening and what decisions are being made. To use this feature call the parse function as follows:
 
-    Ergo.parse(parser, input, debug: true)
+```elixir
+Ergo.parse(parser, input, debug: true)
+```
     
 The various parsers will now use `Logger.info` to record information about how they are processing their inputs.
 
 A challenge when building parsers is accidentally creating a cycle where the parser will never finish but loop over the same input forever. For example:
 
-    many(choice([many(ws()), char(?})]))
+```elixir
+many(choice([many(ws()), char(?})]))
+```
     
 Given an input like "}}}" will never finish. The inner many clause will always succeed with 0 whitespace characters and never actually process the `char` parser at all. You wouldn't deliberately set out to write such a parser but it can happen or at least it seems to happen to me.
 
@@ -166,26 +184,28 @@ For this reason Ergo implements cycle detection. Parsers with the `track: true` 
 
 ## What is a parser?
 
-As with most parser combinator libraries, Ergo parsers are anonymous functions parameterized by inputs. However Ergo parser functions are wrapped in a struct:
-
-    Ergo.Parser
-    
-That holds the parser function and can contain additional descriptive metadata. By default a description is created.
+As with most parser combinator libraries, Ergo parsers are anonymous functions parameterized by inputs. However Ergo parser functions are wrapped in an `Ergo.Parser` struct that holds the parser function and can contain additional descriptive metadata (by default a description of the parser behaviour).
 
 ## The Context
 
 Ergo parsers operate on a `Context` struct that gets passed from parser to parser. We can create the context directly:
 
-    alias Ergo.Context
-    ctx = Context.new("string to be parsed")
+```elixir
+alias Ergo.Context
+ctx = Context.new("string to be parsed")
+```
     
 Although you will rarely need to do so as there is a helper function `Ergo.parse` that will do that for you:
 
-    Ergo.parse(parser, "string to be parsed")
+```elixir
+Ergo.parse(parser, "string to be parsed")
+```
     
 Ergo can send debugging information to the Elixir Logger which can be helpful in figuring out why a parser is not working as expected. E.g.
 
-    Ergo.parse(parser, "string to be parsed", debug: true)
+```elixir
+Ergo.parse(parser, "string to be parsed", debug: true)
+```
 
 The `status` field of the context will always be either `:ok` or a tuple of `{:error, :error_atom}`.
 
@@ -353,6 +373,7 @@ Signature:
 
 Example:
 
+```elixir
     p = choice([literal("Hello"), literal("World")])
     p.(Context.new("Hello World")) -> %{status: :ok, ast: "Hello", input: " World"}    
     p.(Context.new("World Hello")) -> %{status: :ok, ast: "World", input: " Hello"}
@@ -360,7 +381,8 @@ Example:
     boolean = choice([literal("true"), literal("false")], map: fn ast -> ast == "true" end)
     boolean.(Context.new("true")) -> %{status: ok, ast: true, input: ""}
     boolean.(Context.new("false)) -> %{status: ok, ast: false, input: ""}
-    booealn.(Context.new("Hello)) -> %{status: {:error, ...}, input: "Hello"}
+    boolean.(Context.new("Hello)) -> %{status: {:error, ...}, input: "Hello"}
+```
     
 ### many
 
@@ -371,6 +393,7 @@ Signature:
     
 Example:
 
+```elixir
     p = many(char(?\s), min: 1)
     p.(Context.new("    ")) -> %{status: :ok, input: ""}
     
@@ -382,6 +405,7 @@ Example:
     
     p = many(char(?a..?z), map: fn ast -> Enum.count(ast) end)
     p.(Context.new("Hello")) -> %{status: :ok, ast: 5, input: ""}
+```
 
 ### optional
 
@@ -397,21 +421,30 @@ The `transform/2` parser is used to change the `ast` returned by another parser 
 
 Signature:
     squared = transform(uint(), fn ast -> ast * ast end)
-    squared.(Context.new("10")) -> %{status: :ok, ast: 100}
+
+```elixir
+squared.(Context.new("10")) -> %{status: :ok, ast: 100}
+```
 
 ### lookahead
 
 The `lookahead/1` parser attempts to match the parser it is given on the input. If it succeeds it returns with `status: :ok` but `ast: nil` and with the input unchanged. Otherwise it returns with `status: {:error, :lookahead_fail}`.
 
-    p = lookahead(literal("Hello"))
-    p.(Context.new("Hello World")) -> %{status: :ok, input: "Hello World"}
+```elixir
+p = lookahead(literal("Hello"))
+p.(Context.new("Hello World")) -> %{status: :ok, input: "Hello World"}
+```
     
 ### not_lookahed
 
 The `not_lookahead/1` parser is the inverse of the `looakahead` parser in that it attempts to match its parser on the input and where it can do so it returns with `status: {:error, :lookahead_fail}`.
 
-    p = not_lookhead(literal("Hello"))
-    p.(Context.new("Hello World")) -> %{status: {:error, :lookahead_fail}}
+```elixir
+p = not_lookhead(literal("Hello"))
+p.(Context.new("Hello World")) -> %{status: {:error, :lookahead_fail}}
+```
+
+<!-- MDOC !-->
 
 ## Documentation
 
