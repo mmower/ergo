@@ -42,6 +42,7 @@ defmodule Ergo.Combinators do
     map_fn = Keyword.get(opts, :map, nil)
 
     Parser.new(
+      :choice,
       fn %Context{debug: debug, input: input} = ctx ->
         if debug, do: Logger.info("Trying Choice<#{label}> on [#{ellipsize(input, 20)}]")
 
@@ -53,7 +54,6 @@ defmodule Ergo.Combinators do
           end
         end
       end,
-      tracked: true,
       description: "Choice<#{label}>"
     )
   end
@@ -117,6 +117,7 @@ defmodule Ergo.Combinators do
     map_fn = Keyword.get(opts, :map, nil)
 
     Parser.new(
+      :sequence,
       fn %Context{debug: debug, input: input} = ctx ->
         if debug, do: Logger.info("Trying Sequence<#{label}> on [#{ellipsize(input, 20)}]")
 
@@ -133,7 +134,6 @@ defmodule Ergo.Combinators do
             err_ctx
         end
       end,
-      tracked: true,
       description: "Sequence<#{label}>"
     )
   end
@@ -189,6 +189,7 @@ defmodule Ergo.Combinators do
     map_fn = Keyword.get(opts, :map, nil)
 
     Parser.new(
+      :many,
       fn %Context{debug: debug, input: input} = ctx ->
         if debug, do: Logger.info("Trying Many<#{label}> on [#{ellipsize(input, 20)}]")
 
@@ -199,7 +200,6 @@ defmodule Ergo.Combinators do
           |> Context.ast_transform(map_fn)
         end
       end,
-      tracked: true,
       description: "Many<#{label}, #{min}..#{max}>"
     )
   end
@@ -247,6 +247,7 @@ defmodule Ergo.Combinators do
     map_fn = Keyword.get(opts, :map, nil)
 
     Parser.new(
+      :optional,
       fn %Context{debug: debug, input: input} = ctx ->
         if debug, do: Logger.info("Trying Optional<#{label}> on [#{ellipsize(input, 20)}]")
 
@@ -266,7 +267,6 @@ defmodule Ergo.Combinators do
             %{ctx | status: :ok}
         end
       end,
-      tracked: true,
       description: "Optional<#{label}>"
     )
   end
@@ -286,6 +286,7 @@ defmodule Ergo.Combinators do
     label = Keyword.get(opts, :label, "#")
 
     Parser.new(
+      :ignore,
       fn %Context{debug: debug, input: input} = ctx ->
         if debug, do: Logger.info("Trying Ignore<#{label}> on [#{ellipsize(input, 20)}]")
 
@@ -315,6 +316,7 @@ defmodule Ergo.Combinators do
     label = Keyword.get(opts, :label, "#")
 
     Parser.new(
+      :transform,
       fn %Context{debug: debug, ast: ast} = ctx ->
         if debug, do: Logger.info("Trying Transform<#{label}> on [#{inspect(ast)}]")
 
@@ -336,19 +338,18 @@ defmodule Ergo.Combinators do
       iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
       iex> parser = lookahead(literal("Hello"))
-      iex> Ergo.parse(parser, "Hello World")
-      %Context{status: :ok, ast: nil, input: "Hello World", char: 0, index: 0, line: 1, col: 1}
+      iex> assert %Context{status: :ok, ast: nil, input: "Hello World", index: 0} = Ergo.parse(parser, "Hello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
       iex> parser = lookahead(literal("Helga"))
-      iex> Ergo.parse(parser, "Hello World")
-      %Context{status: {:error, :lookahead_fail}, ast: [?l, ?e, ?H], char: ?l, index: 3, col: 4, input: "lo World"}
+      iex> assert %Context{status: {:error, :lookahead_fail}, ast: [?l, ?e, ?H], char: ?l, index: 3, col: 4, input: "lo World"} = Ergo.parse(parser, "Hello World")
   """
   def lookahead(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "#")
 
     Parser.new(
+      :lookahead,
       fn %Context{debug: debug, input: input} = ctx ->
         if debug, do: Logger.info("Trying Lookahead<#{label}> on [#{ellipsize(input, 20)}]")
         case Parser.call(parser, ctx) do
@@ -370,19 +371,18 @@ defmodule Ergo.Combinators do
     iex> alias Ergo.Context
     iex> import Ergo.{Combinators, Terminals}
     iex> parser = not_lookahead(literal("Foo"))
-    iex> Ergo.parse(parser, "Hello World")
-    %Context{status: :ok, input: "Hello World"}
+    iex> assert %Context{status: :ok, input: "Hello World"} = Ergo.parse(parser, "Hello World")
 
     iex> alias Ergo.{Context, Parser}
     iex> import Ergo.{Combinators, Terminals}
     iex> parser = not_lookahead(literal("Hello"))
-    iex> Ergo.parse(parser, "Hello World")
-    %Context{status: {:error, :lookahead_fail}, input: "Hello World"}
+    iex> assert %Context{status: {:error, :lookahead_fail}, input: "Hello World"} = Ergo.parse(parser, "Hello World")
   """
   def not_lookahead(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "#")
 
     Parser.new(
+      :not_lookahead,
       fn %Context{debug: debug, input: input} = ctx ->
         if debug, do: Logger.info("Trying NotLookahead<#{label}> on [#{ellipsize(input, 20)}]")
         case Parser.call(parser, ctx) do

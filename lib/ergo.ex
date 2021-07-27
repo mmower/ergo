@@ -6,6 +6,16 @@ defmodule Ergo do
 
   alias Ergo.{Context, Parser}
 
+  use Application
+
+  @doc ~S"""
+  `start/2` should be called before
+
+  """
+  def start(_type, _args) do
+    Supervisor.start_link([Ergo.ParserRefs], strategy: :one_for_one)
+  end
+
   @doc ~S"""
   The `parser/2` function is a simple entry point to parsing inputs that constructs the Context record required.
 
@@ -16,8 +26,7 @@ defmodule Ergo do
 
       iex> alias Ergo.Terminals
       iex> parser = Terminals.literal("Hello")
-      iex> Ergo.parse(parser, "Hello World")
-      %Ergo.Context{status: :ok, ast: "Hello", char: ?o, input: " World", index: 5, line: 1, col: 6}
+      iex> assert %Ergo.Context{status: :ok, ast: "Hello", char: ?o, input: " World", index: 5, line: 1, col: 6} = Ergo.parse(parser, "Hello World")
   """
   def parse(%Parser{} = parser, input, opts \\ []) when is_binary(input) do
     debug = Keyword.get(opts, :debug, false)

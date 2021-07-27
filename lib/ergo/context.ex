@@ -1,25 +1,6 @@
 defmodule Ergo.Context do
   alias __MODULE__
 
-  defmodule CycleError do
-    alias __MODULE__
-
-    defexception [:message]
-
-    def exception({{_ref, description, _index, line, col}, %{tracks: tracks}}) do
-      message =
-        Enum.reduce(
-          tracks,
-          "Ergo has detected a cycle in #{description} and is aborting parsing at: #{line}:#{col}",
-          fn {_ref, description, _index, _line, _col}, msg ->
-            msg <> "\n#{description}"
-          end
-        )
-
-      %CycleError{message: message}
-    end
-  end
-
   @moduledoc """
   `Ergo.Context` defines the `Context` record type and functions to create and manipulate them.
 
@@ -82,7 +63,7 @@ defmodule Ergo.Context do
             char: 0,
             ast: nil,
             debug: false,
-            tracks: []
+            tracks: MapSet.new()
 
   @doc """
   Returns a newly initialised `Context` with `input` set to the string passed in.
@@ -90,7 +71,7 @@ defmodule Ergo.Context do
   ## Examples:
 
     iex> Context.new("Hello World")
-    %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, debug: false, tracks: []}
+    %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, debug: false, tracks: %MapSet{}}
   """
   def new(input, debug \\ false) when is_binary(input) do
     %Context{input: input, debug: debug}
@@ -123,38 +104,33 @@ defmodule Ergo.Context do
   end
 
   @doc ~S"""
-  We track which parsers have operated on the input.
+  Returns truthy value if the parser referred to by `ref` has already been called for the index `index`.
 
   ## Examples
 
-      First example checks that we keep references
-      iex> alias Ergo.Context
-      iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new("Hello World")
-      iex> parser = many(char(?H))
-      iex> track = {parser.ref, parser.description, 0, 1, 1}
-      iex> assert %Context{tracks: [^track]} = context2 = Context.update_tracks(context, parser.ref, parser.description)
-      iex> parser2 = many(char(?e))
-      iex> track2 = {parser2.ref, parser2.description, 0, 1, 1}
-      iex> assert %Context{tracks: [^track2, ^track]} = Context.update_tracks(context2, parser2.ref, parser2.description)
-
-      Second example checks that we throw if we get a cycle
-      iex> import Ergo.{Terminals, Combinators}
-      iex> parser = many(choice([many(ws()), char(?})]))
-      iex> assert_raise Ergo.Context.CycleError, fn -> Ergo.parse(parser, "}}}") end
+    iex> alias Ergo.Context
+    iex> parser_ref = make_ref()
+    iex> context = Context.new("Hello World") |> Context.track_parser(parser_ref)
+    iex> assert Context.parser_tracked?(context, parser_ref)
   """
-  def update_tracks(
-        %Context{index: index, line: line, col: col, tracks: tracks} = ctx,
-        ref,
-        description
-      ) do
-    new_track = {ref, description, index, line, col}
+  def parser_tracked?(%Context{tracks: tracks, index: index}, ref) do
+    MapSet.member?(tracks, {ref, index})
+  end
 
-    if Enum.find(tracks, false, fn track -> new_track == track end) do
-      raise Ergo.Context.CycleError, {new_track, ctx}
-    else
-      %{ctx | tracks: [new_track | tracks]}
-    end
+  @doc ~S"""
+  Updates the `Context` to track that the parser referred to by `ref` has been called for the index `index`.
+
+  Examples:
+
+      iex> alias Ergo.Context
+      iex> import Ergo.Terminals
+      iex> context = Context.new("Hello World")
+      iex> parser = literal("Hello")
+      iex> context2 = Context.track_parser(context, parser.ref)
+      iex> assert MapSet.member?(context2.tracks, {parser.ref, 0})
+  """
+  def track_parser(%Context{tracks: tracks, index: index} = ctx, ref) do
+    %{ctx | tracks: MapSet.put(tracks, {ref, index})}
   end
 
   @doc """

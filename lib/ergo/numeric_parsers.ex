@@ -30,6 +30,7 @@ defmodule Ergo.NumericParsers do
     parser = digits()
 
     Parser.new(
+      :uint,
       fn %Context{input: input, debug: debug} = ctx ->
         if debug, do: Logger.info("Trying UInt<#{label}> on #{ellipsize(input, 20)}")
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do
@@ -57,6 +58,7 @@ defmodule Ergo.NumericParsers do
     parser = sequence([digits(), ignore(char(?.)), digits()], label: "ddd.dd")
 
     Parser.new(
+      :decimal,
       fn %Context{input: input, debug: debug} = ctx ->
         if debug, do: Logger.info("Trying Decimal<#{label}> on [#{ellipsize(input, 20)}]")
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do

@@ -1,6 +1,25 @@
 defmodule Ergo.Parser do
   alias __MODULE__
-  alias Ergo.Context
+  alias Ergo.{Context, ParserRefs}
+
+  defmodule CycleError do
+    alias __MODULE__
+
+    defexception [:message]
+
+    def exception({{_ref, description, _index, line, col}, %{tracks: tracks}}) do
+      message =
+        Enum.reduce(
+          tracks,
+          "Ergo has detected a cycle in #{description} and is aborting parsing at: #{line}:#{col}",
+          fn {_ref, description, _index, _line, _col}, msg ->
+            msg <> "\n#{description}"
+          end
+        )
+
+      %CycleError{message: message}
+    end
+  end
 
   @moduledoc """
   `Ergo.Parser` contains the Parser record type. Ergo parsers are anonymous functions but we embed
@@ -8,17 +27,17 @@ defmodule Ergo.Parser do
   the storage of debugging information.
   """
   defstruct [
+    type: nil,
     parser_fn: nil,
     ref: nil,
-    tracked: false,
     description: "#"
   ]
 
   @doc ~S"""
   `new/2` creates a new `Parser` from the given parsing function and with the specified metadata.
   """
-  def new(parser_fn, meta \\ []) when is_function(parser_fn) do
-    %Parser{parser_fn: parser_fn, ref: make_ref()}
+  def new(type, parser_fn, meta \\ []) when is_atom(type) and is_function(parser_fn) do
+    %Parser{type: type, parser_fn: parser_fn, ref: ParserRefs.ref_for(type)}
     |> Map.merge(Enum.into(meta, %{}))
   end
 
@@ -26,17 +45,32 @@ defmodule Ergo.Parser do
   `call/2` invokes the specified parser by calling its parsing function with the specified context having
   first reset the context status.
   """
-  def call(%Parser{parser_fn: p, description: description, ref: ref, tracked: true}, %Context{} = ctx) do
+  def call(%Parser{parser_fn: parse_fn} = parser, %Context{} = ctx) do
     ctx
     |> Context.reset_status()
-    |> Context.update_tracks(ref, description)
-    |> p.()
+    |> track_parser(parser)
+    |> parse_fn.()
   end
 
-  def call(%Parser{parser_fn: p, tracked: false}, %Context{} = ctx) do
-    ctx
-    |> Context.reset_status()
-    |> p.()
+  @doc ~S"""
+  `track_parser` first checks if the parser has already been tracked for the current input index and, if it has,
+  raises a `CycleError` to indicate the parser is in a loop. Otherwise it adds the parser at the current index.
+
+  ## Examples
+
+    iex> alias Ergo.Context
+    iex> import Ergo.{Terminals, Combinators}
+    iex> context = Context.new("Hello World")
+    iex> parser = many(char(?H))
+    iex> context2 = track_parser(context, parser)
+    iex> assert Context.parser_tracked?(context2, parser)
+  """
+  def track_parser(%Context{} = ctx, %Parser{ref: ref} = parser) do
+    if Context.parser_tracked?(ctx, ref) do
+      raise Ergo.Parser.CycleError, context: ctx, parser: parser
+    else
+      Context.track_parser(ctx, ref)
+    end
   end
 
   @doc ~S"""

@@ -27,26 +27,26 @@ defmodule Ergo.Meta do
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Meta
-      iex> null_parser = Parser.new(fn %Context{} = ctx -> ctx end)
+      iex> null_parser = Parser.new(:null_parser, fn %Context{} = ctx -> ctx end)
       iex> assert_raise(RuntimeError, fn -> Ergo.parse(around(null_parser), "") end)
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Meta
-      iex> null_parser = Parser.new(fn %Context{} = ctx -> ctx end)
+      iex> null_parser = Parser.new(:null_parser, fn %Context{} = ctx -> ctx end)
       iex> parser = around(null_parser, before: fn _ctx -> send(self(), :before) end)
       iex> Ergo.parse(parser, "")
       iex> assert_receive :before
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Meta
-      iex> null_parser = Parser.new(fn %Context{} = ctx -> ctx end)
+      iex> null_parser = Parser.new(:null_parser, fn %Context{} = ctx -> ctx end)
       iex> parser = around(null_parser, after: fn _ctx, _new_ctx -> send(self(), :after) end)
       iex> Ergo.parse(parser, "")
       iex> assert_receive :after
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Meta
-      iex> null_parser = Parser.new(fn %Context{} = ctx -> ctx end)
+      iex> null_parser = Parser.new(:null_parser, fn %Context{} = ctx -> ctx end)
       iex> parser = around(null_parser, before: fn _ctx -> send(self(), :before) end, after: fn _ctx, _new_ctx -> send(self(), :after) end)
       iex> Ergo.parse(parser, "")
       iex> assert_receive :before
@@ -59,6 +59,7 @@ defmodule Ergo.Meta do
     cond do
       before_fn && !after_fn ->
         Parser.new(
+          :before,
           fn %Context{} = ctx ->
             before_fn.(ctx)
             Parser.call(parser, ctx)
@@ -67,6 +68,7 @@ defmodule Ergo.Meta do
 
       after_fn && !before_fn ->
         Parser.new(
+          :after,
           fn %Context{} = ctx ->
             new_ctx = Parser.call(parser, ctx)
             after_fn.(ctx, new_ctx)
@@ -76,6 +78,7 @@ defmodule Ergo.Meta do
 
       before_fn && after_fn ->
         Parser.new(
+          :around,
           fn %Context{} = ctx ->
             before_fn.(ctx)
             new_ctx = Parser.call(parser, ctx)
@@ -99,13 +102,14 @@ defmodule Ergo.Meta do
 
       iex> alias Ergo.Parser
       iex> import Ergo.Meta
-      iex> failing_parser = Parser.new(fn ctx -> %{ctx | status: {:error, :unfathomable_error}} end)
+      iex> failing_parser = Parser.new(:err_parser, fn ctx -> %{ctx | status: {:error, :unfathomable_error}} end)
       iex> parser = failed(failing_parser, fn _ctx -> send(self(), :failed) end)
       iex> Ergo.parse(parser, "")
       iex> assert_received :failed
   """
   def failed(%Parser{} = parser, fail_fn) when is_function(fail_fn) do
     Parser.new(
+      :failed,
       fn %Context{} = ctx ->
         with %Context{status: {:error, _}} = new_ctx <- Parser.call(parser, ctx) do
           fail_fn.(new_ctx)
