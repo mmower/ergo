@@ -115,4 +115,14 @@ defmodule Ergo.Meta do
     )
   end
 
+  # def wrap(%Parser{} = parser, label) do
+  #   Parser.new(
+  #     fn %Context{} = ctx ->
+  #       Parser.call(parser, %{ctx | track: false})
+  #     end,
+  #     label: label,
+  #     description: label
+  #   )
+  # end
+
 end
