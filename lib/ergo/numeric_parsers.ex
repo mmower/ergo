@@ -33,7 +33,7 @@ defmodule Ergo.NumericParsers do
       :uint,
       fn %Context{input: input, debug: debug} = ctx ->
         if debug, do: Logger.info("Trying UInt<#{label}> on #{ellipsize(input, 20)}")
-        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           uint_value = ast |> Enum.join("") |> String.to_integer()
           %{new_ctx | ast: uint_value}
         end
@@ -61,7 +61,7 @@ defmodule Ergo.NumericParsers do
       :decimal,
       fn %Context{input: input, debug: debug} = ctx ->
         if debug, do: Logger.info("Trying Decimal<#{label}> on [#{ellipsize(input, 20)}]")
-        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.call(parser, ctx) do
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           [i_part | [d_part]] = ast
           i_val = i_part |> Enum.join("")
           d_val = d_part |> Enum.join("")

@@ -2,6 +2,8 @@ defmodule Ergo.Parser do
   alias __MODULE__
   alias Ergo.{Context, ParserRefs}
 
+  require Logger
+
   defmodule CycleError do
     alias __MODULE__
 
@@ -42,14 +44,34 @@ defmodule Ergo.Parser do
   end
 
   @doc ~S"""
+  `invoke/2` is the main entry point for the parsing process. It looks up the parser control function within
+  the `Context` and uses it to run the given `parser`.
+
+  This indirection allows a different control function to be specified, e.g. by the diagnose entry point
+  which can wrap the parser call, while still calling the same parsing function (i.e. we are not introducing
+  debugging variants of the parsers that could be subject to different behaviours)
+  """
+
+  def invoke(%Parser{} = parser, %Context{invoke_fn: invoke_fn} = ctx) do
+    invoke_fn.(parser, ctx)
+  end
+
+  @doc ~S"""
   `call/2` invokes the specified parser by calling its parsing function with the specified context having
   first reset the context status.
   """
-  def call(%Parser{parser_fn: parse_fn} = parser, %Context{} = ctx) do
+  def call(%Parser{parser_fn: parser_fn} = parser, %Context{} = ctx) do
     ctx
     |> Context.reset_status()
     |> track_parser(parser)
-    |> parse_fn.()
+    |> parser_fn.()
+  end
+
+  def diagnose(%Parser{} = parser, %Context{} = ctx) do
+    Logger.info("Diagnose: #{parser.type}")
+    new_ctx = Parser.call(parser, ctx)
+    Logger.info("Back from: #{parser.type}")
+    new_ctx
   end
 
   @doc ~S"""

@@ -29,13 +29,13 @@ defmodule Ergo.Terminals do
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
-      iex> context = Context.new()
-      iex> assert %Context{status: :ok, ast: nil} = Parser.call(eoi(), context)
+      iex> context = Context.new(&Ergo.Parser.call/2, "")
+      iex> assert %Context{status: :ok, ast: nil} = Parser.invoke(eoi(), context)
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
-      iex> context = Context.new("Hello World")
-      iex> assert %Context{status: {:error, :not_eoi}, message: "Input not empty: Hello World…", input: "Hello World"} = Parser.call(eoi(), context)
+      iex> context = Context.new(&Ergo.Parser.call/2, "Hello World")
+      iex> assert %Context{status: {:error, :not_eoi}, message: "Input not empty: Hello World…", input: "Hello World"} = Parser.invoke(eoi(), context)
   """
   def eoi() do
     Parser.new(
@@ -192,7 +192,7 @@ defmodule Ergo.Terminals do
           }
 
           Enum.reduce_while(l, err_ctx, fn matcher, err_ctx ->
-            case Parser.call(char(matcher), ctx) do
+            case Parser.invoke(char(matcher), ctx) do
               %Context{status: :ok} = new_ctx -> {:halt, new_ctx}
               _no_match -> {:cont, err_ctx}
             end
@@ -234,9 +234,9 @@ defmodule Ergo.Terminals do
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
-      iex> context = Context.new()
+      iex> context = Context.new(&Ergo.Parser.call/2, "")
       iex> parser = digit()
-      iex> assert %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", char: 0, input: "", index: 0, line: 1, col: 1} = Parser.call(parser, context)
+      iex> assert %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", char: 0, input: "", index: 0, line: 1, col: 1} = Parser.invoke(parser, context)
   """
   def digit() do
     %{char(?0..?9) | description: "Digit"}
@@ -371,7 +371,7 @@ defmodule Ergo.Terminals do
 
   defp literal_reduce(chars, ctx) do
     Enum.reduce_while(chars, ctx, fn c, ctx ->
-      case Parser.call(char(c), ctx) do
+      case Parser.invoke(char(c), ctx) do
         %Context{status: :ok} = new_ctx ->
           {:cont, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}}
 

@@ -62,7 +62,7 @@ defmodule Ergo.Meta do
           :before,
           fn %Context{} = ctx ->
             before_fn.(ctx)
-            Parser.call(parser, ctx)
+            Parser.invoke(parser, ctx)
           end
         )
 
@@ -70,7 +70,7 @@ defmodule Ergo.Meta do
         Parser.new(
           :after,
           fn %Context{} = ctx ->
-            new_ctx = Parser.call(parser, ctx)
+            new_ctx = Parser.invoke(parser, ctx)
             after_fn.(ctx, new_ctx)
             new_ctx
           end
@@ -81,7 +81,7 @@ defmodule Ergo.Meta do
           :around,
           fn %Context{} = ctx ->
             before_fn.(ctx)
-            new_ctx = Parser.call(parser, ctx)
+            new_ctx = Parser.invoke(parser, ctx)
             after_fn.(ctx, new_ctx)
             new_ctx
           end
@@ -111,7 +111,7 @@ defmodule Ergo.Meta do
     Parser.new(
       :failed,
       fn %Context{} = ctx ->
-        with %Context{status: {:error, _}} = new_ctx <- Parser.call(parser, ctx) do
+        with %Context{status: {:error, _}} = new_ctx <- Parser.invoke(parser, ctx) do
           fail_fn.(new_ctx)
           new_ctx
         end
@@ -122,7 +122,7 @@ defmodule Ergo.Meta do
   # def wrap(%Parser{} = parser, label) do
   #   Parser.new(
   #     fn %Context{} = ctx ->
-  #       Parser.call(parser, %{ctx | track: false})
+  #       Parser.invoke(parser, %{ctx | track: false})
   #     end,
   #     label: label,
   #     description: label
