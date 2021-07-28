@@ -1,4 +1,4 @@
-defmodule Ergo.NumericParsers do
+defmodule Ergo.Numeric do
   alias Ergo.{Context, Parser}
   import Ergo.{Terminals, Combinators, Utils}
   require Logger
@@ -21,7 +21,7 @@ defmodule Ergo.NumericParsers do
   ## Examples
 
       iex> alias Ergo.Context
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> context = Ergo.parse(uint(), "2345")
       iex> assert %Context{status: :ok, ast: 2345, char: ?5, index: 4, col: 5} = context
   """
@@ -49,7 +49,7 @@ defmodule Ergo.NumericParsers do
   ## Examples
 
       iex> alias Ergo.Context
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> context = Ergo.parse(decimal(), "234.56")
       iex> assert %Context{status: :ok, ast: 234.56} = context
   """
@@ -81,7 +81,7 @@ defmodule Ergo.NumericParsers do
   ## Examples
 
       iex> alias Ergo.Context
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> context = Ergo.parse(digits(), "2345")
       iex> assert %Context{status: :ok, ast: [2, 3, 4, 5]} = context
   """
@@ -98,28 +98,28 @@ defmodule Ergo.NumericParsers do
 
   ## Examples
 
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> assert %{status: :ok, ast: 42} = Ergo.parse(number(), "42")
 
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> assert %{status: :ok, ast: -42} = Ergo.parse(number(), "-42")
 
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> assert %{status: :ok, ast: 42.0} = Ergo.parse(number(), "42.0")
 
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> assert %{status: :ok, ast: -42.0} = Ergo.parse(number(), "-42.0")
 
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> assert %{status: :ok, ast: 0} = Ergo.parse(number(), "0")
 
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> assert %{status: :ok, ast: 0} = Ergo.parse(number(), "0000")
 
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> assert %{status: {:error, _}} = Ergo.parse(number(), "Fourty Two")
 
-      iex> import Ergo.NumericParsers
+      iex> import Ergo.Numeric
       iex> assert %{status: :ok, ast: 42} = Ergo.parse(number(), "42Fourty Two")
   """
   def number(opts \\ []) do
