@@ -33,14 +33,14 @@ defmodule Ergo.Numeric do
       :uint,
       fn %Context{input: input, debug: debug} = ctx ->
         if debug, do: Logger.info("Trying UInt<#{label}> on #{ellipsize(input, 20)}")
+
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           uint_value = ast |> Enum.join("") |> String.to_integer()
           %{new_ctx | ast: uint_value}
         end
       end,
-      %{
-        description: "UInt<#{label}>"
-      }
+      combinator: true,
+      label: label
     )
   end
 
@@ -61,6 +61,7 @@ defmodule Ergo.Numeric do
       :decimal,
       fn %Context{input: input, debug: debug} = ctx ->
         if debug, do: Logger.info("Trying Decimal<#{label}> on [#{ellipsize(input, 20)}]")
+
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           [i_part | [d_part]] = ast
           i_val = i_part |> Enum.join("")
@@ -68,9 +69,8 @@ defmodule Ergo.Numeric do
           %{new_ctx | ast: String.to_float("#{i_val}.#{d_val}")}
         end
       end,
-      %{
-        description: "Decimal<#{label}>"
-      }
+      combinator: true,
+      label: label
     )
   end
 
@@ -88,8 +88,11 @@ defmodule Ergo.Numeric do
   def digits(opts \\ []) do
     label = Keyword.get(opts, :label, "#")
 
-    parser = many(digit(), min: 1, map: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end)
-    %{parser | description: "Digits<#{label}>"}
+    many(digit(),
+      label: label,
+      min: 1,
+      map: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end
+    )
   end
 
   @doc ~S"""
@@ -125,21 +128,20 @@ defmodule Ergo.Numeric do
   def number(opts \\ []) do
     label = Keyword.get(opts, :label, "#")
 
-    parser = sequence(
+    sequence(
       [
         optional(char(?-), map: fn _ -> -1 end, label: "-?"),
-        choice([
-          decimal(),
-          uint()
-         ],
-        label: "[i|d]"
+        choice(
+          [
+            decimal(),
+            uint()
+          ],
+          label: "[i|d]"
         )
       ],
-      label: "Number<#{label}>",
+      type: :number,
+      label: label,
       map: &Enum.product/1
     )
-
-    %{parser | description: "Number<#{label}>"}
   end
-
 end

@@ -29,7 +29,6 @@ defmodule Ergo do
       iex> assert %Ergo.Context{status: :ok, ast: "Hello", char: ?o, input: " World", index: 5, line: 1, col: 6} = Ergo.parse(parser, "Hello World")
   """
   def parse(%Parser{} = parser, input) when is_binary(input) do
-
     Parser.invoke(parser, Context.new(&Parser.call/2, input))
     # Parser.call(parser, Context.new(input, parser: &))
   end

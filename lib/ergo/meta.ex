@@ -53,6 +53,7 @@ defmodule Ergo.Meta do
       iex> assert_receive :after
   """
   def around(%Parser{} = parser, opts \\ []) do
+    label = Keyword.get(opts, :label, "#")
     before_fn = Keyword.get(opts, :before, nil)
     after_fn = Keyword.get(opts, :after, nil)
 
@@ -63,7 +64,9 @@ defmodule Ergo.Meta do
           fn %Context{} = ctx ->
             before_fn.(ctx)
             Parser.invoke(parser, ctx)
-          end
+          end,
+          combinator: true,
+          label: label
         )
 
       after_fn && !before_fn ->
@@ -73,7 +76,9 @@ defmodule Ergo.Meta do
             new_ctx = Parser.invoke(parser, ctx)
             after_fn.(ctx, new_ctx)
             new_ctx
-          end
+          end,
+          combinator: true,
+          label: label
         )
 
       before_fn && after_fn ->
@@ -84,7 +89,9 @@ defmodule Ergo.Meta do
             new_ctx = Parser.invoke(parser, ctx)
             after_fn.(ctx, new_ctx)
             new_ctx
-          end
+          end,
+          combinator: true,
+          label: label
         )
 
       true ->
@@ -107,7 +114,9 @@ defmodule Ergo.Meta do
       iex> Ergo.parse(parser, "")
       iex> assert_received :failed
   """
-  def failed(%Parser{} = parser, fail_fn) when is_function(fail_fn) do
+  def failed(%Parser{} = parser, fail_fn, opts \\ []) when is_function(fail_fn) do
+    label = Keyword.get(opts, :label, "#")
+
     Parser.new(
       :failed,
       fn %Context{} = ctx ->
@@ -115,7 +124,9 @@ defmodule Ergo.Meta do
           fail_fn.(new_ctx)
           new_ctx
         end
-      end
+      end,
+      label: label,
+      combinator: true
     )
   end
 

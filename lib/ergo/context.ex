@@ -2,7 +2,9 @@ defmodule Ergo.Context do
   alias __MODULE__
 
   @moduledoc """
-  `Ergo.Context` defines the `Context` record type and functions to create and manipulate them.
+
+  `Ergo.Context` defines the `Context` struct that is used to maintain parser state as the various
+  parsers work, and various functions for creating & manipulating contexts.
 
   # Fields
 
@@ -68,10 +70,14 @@ defmodule Ergo.Context do
             char: 0,
             ast: nil,
             debug: false,
+            rules: [],
             tracks: MapSet.new()
 
   @doc """
-  Returns a newly initialised `Context` with `input` set to the string passed in.
+  `new` returns a newly initialised `Context`
+
+
+  with `input` set to the string passed in.
 
   ## Examples:
 
@@ -104,11 +110,11 @@ defmodule Ergo.Context do
   ## Examples
 
     iex> alias Ergo.Context
-    iex> parser_ref = make_ref()
+    iex> parser_ref = 123
     iex> context = Context.new(&Ergo.Parser.call/2, "Hello World") |> Context.track_parser(parser_ref)
     iex> assert Context.parser_tracked?(context, parser_ref)
   """
-  def parser_tracked?(%Context{tracks: tracks, index: index}, ref) do
+  def parser_tracked?(%Context{tracks: tracks, index: index}, ref) when is_integer(ref) do
     MapSet.member?(tracks, {ref, index})
   end
 
@@ -124,7 +130,7 @@ defmodule Ergo.Context do
       iex> context2 = Context.track_parser(context, parser.ref)
       iex> assert MapSet.member?(context2.tracks, {parser.ref, 0})
   """
-  def track_parser(%Context{tracks: tracks, index: index} = ctx, ref) do
+  def track_parser(%Context{tracks: tracks, index: index} = ctx, ref) when is_integer(ref) do
     %{ctx | tracks: MapSet.put(tracks, {ref, index})}
   end
 

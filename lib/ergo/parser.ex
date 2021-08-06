@@ -30,16 +30,17 @@ defmodule Ergo.Parser do
   """
   defstruct [
     type: nil,
+    combinator: false,
     parser_fn: nil,
     ref: nil,
-    description: "#"
+    label: "#"
   ]
 
   @doc ~S"""
   `new/2` creates a new `Parser` from the given parsing function and with the specified metadata.
   """
   def new(type, parser_fn, meta \\ []) when is_atom(type) and is_function(parser_fn) do
-    %Parser{type: type, parser_fn: parser_fn, ref: ParserRefs.ref_for(type)}
+    %Parser{type: type, parser_fn: parser_fn, ref: ParserRefs.next_ref()}
     |> Map.merge(Enum.into(meta, %{}))
   end
 
@@ -67,11 +68,24 @@ defmodule Ergo.Parser do
     |> parser_fn.()
   end
 
-  def diagnose(%Parser{} = parser, %Context{} = ctx) do
-    Logger.info("Diagnose: #{parser.type}")
-    new_ctx = Parser.call(parser, ctx)
-    Logger.info("Back from: #{parser.type}")
-    new_ctx
+  @doc ~S"""
+  `diagnose/2` invokes the specified parser by calling its parsing function with the specific context while
+  tracking the progress of the parser. The progress can be retrieved from the `progress` key of the returned
+  context.
+
+  ## Examples
+
+      iex> alias Ergo.{Context, Parser}
+      iex> import Ergo.{Combinators, Terminals}
+      iex> context = Context.new(&Ergo.Parser.diagnose/2, "Hello World")
+      iex> parser = many(wc())
+      iex> assert %{rules: []} = Parser.invoke(parser, context)
+  """
+  def diagnose(%Parser{ref: ref, type: type, label: label} = parser, %Context{rules: rules} = ctx) do
+    calling_ctx = %{ctx | rules: [{ref, type, label} | rules]}
+    with %{status: :ok} = updated_ctx <- Parser.call(parser, calling_ctx) do
+      %{updated_ctx | rules: rules}
+    end
   end
 
   @doc ~S"""
@@ -80,12 +94,12 @@ defmodule Ergo.Parser do
 
   ## Examples
 
-    iex> alias Ergo.Context
+    iex> alias Ergo.{Context, Parser}
     iex> import Ergo.{Terminals, Combinators}
-    iex> context = Context.new("Hello World")
+    iex> context = Context.new(&Ergo.Parser.call/2, "Hello World")
     iex> parser = many(char(?H))
-    iex> context2 = track_parser(context, parser)
-    iex> assert Context.parser_tracked?(context2, parser)
+    iex> context2 = Parser.track_parser(context, parser)
+    iex> assert Context.parser_tracked?(context2, parser.ref)
   """
   def track_parser(%Context{} = ctx, %Parser{ref: ref} = parser) do
     if Context.parser_tracked?(ctx, ref) do
@@ -93,19 +107,6 @@ defmodule Ergo.Parser do
     else
       Context.track_parser(ctx, ref)
     end
-  end
-
-  @doc ~S"""
-  `description/1` returns the description metadata for the parser.
-
-  ## Examples
-
-      iex> parser = Parser.new(identity, %{description: "Not a parser at all"})
-      iex> Ergo.Parser.description(parser)
-      "Not a parser at all"
-  """
-  def description(%Parser{description: description}) do
-    description
   end
 
 end

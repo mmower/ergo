@@ -3,20 +3,23 @@ defmodule Ergo.ParserRefs do
 
   @name :ergo_parser_refs_agent
 
+  @doc """
+  Starts the refs agent. There is no need to call this directly as it will be started as part of the calling
+  applications supervision tree via mix.exs
+  """
   def start_link(_) do
-    IO.puts(""); IO.puts("Starting ParserRefs Agent"); IO.puts("")
     Agent.start_link(fn -> 0 end, name: @name)
   end
 
-  @doc ~S"""
+  @doc """
+  Returns the next parser ref id, a monotonically increasing value starting at 0
 
   ## Examples
 
-  iex> assert Regex.match?(~r/sequence-\d+/, Ergo.ParserRefs.ref_for(:sequence))
+      iex> assert is_integer(Ergo.ParserRefs.next_ref())
   """
-  def ref_for(type) do
-    ref = Agent.get_and_update(@name, fn state -> {state, state+1} end)
-    "#{type}-#{ref}"
+  def next_ref() do
+    Agent.get_and_update(@name, fn state -> {state, state+1} end)
   end
 
 end

@@ -54,7 +54,8 @@ defmodule Ergo.Combinators do
           end
         end
       end,
-      description: "Choice<#{label}>"
+      combinator: true,
+      label: label
     )
   end
 
@@ -136,7 +137,8 @@ defmodule Ergo.Combinators do
             err_ctx
         end
       end,
-      description: "Sequence<#{label}>"
+      combinator: true,
+      label: label
     )
   end
 
@@ -203,7 +205,8 @@ defmodule Ergo.Combinators do
           |> Context.ast_transform(map_fn)
         end
       end,
-      description: "Many<#{label}, #{min}..#{max}>"
+      combinator: true,
+      label: label
     )
   end
 
@@ -269,7 +272,8 @@ defmodule Ergo.Combinators do
             %{ctx | status: :ok}
         end
       end,
-      description: "Optional<#{label}>"
+      combinator: true,
+      label: label
     )
   end
 
@@ -296,7 +300,8 @@ defmodule Ergo.Combinators do
           %{new_ctx | ast: nil}
         end
       end,
-      description: "Ignore<#{label}>"
+      combinator: true,
+      label: label
     )
   end
 
@@ -328,7 +333,8 @@ defmodule Ergo.Combinators do
           %{new_ctx | ast: tranformed_ast}
         end
       end,
-      description: "Transform<#{label}>"
+      combinator: true,
+      label: label
     )
   end
 
@@ -359,7 +365,8 @@ defmodule Ergo.Combinators do
           bad_ctx -> %{bad_ctx | status: {:error, :lookahead_fail}, message: nil}
         end
       end,
-      description: "Lookahead<#{label}>"
+      combinator: true,
+      label: label
     )
   end
 
@@ -392,7 +399,8 @@ defmodule Ergo.Combinators do
           %Context{} -> %{ctx | status: {:error, :lookahead_fail}, message: nil}
         end
       end,
-      description: "NotLookahead<#{label}>"
+      combinator: true,
+      label: label
     )
   end
 end
