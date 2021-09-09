@@ -19,6 +19,16 @@ defmodule Ergo.Combinators do
 
   """
 
+  # If any element of the parser list is not an Ergo.Parser, raise an exception.
+
+  defp validate_parser(p) do
+    if !is_struct(p, Ergo.Parser), do: raise "Non-parser passed to combinator: #{inspect(p)}"
+  end
+
+  defp validate_parsers(parsers) when is_list(parsers) do
+    Enum.each(parsers, &validate_parser/1)
+  end
+
   @doc ~S"""
   The `choice/1` parser takes a list of parsers. It tries each in order attempting to match one. Once a match has been
   made choice returns the result of the matching parser.
@@ -39,7 +49,9 @@ defmodule Ergo.Combinators do
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
     label = Keyword.get(opts, :label, "#")
-    map_fn = Keyword.get(opts, :map, nil)
+    map_fn = Keyword.get(opts, :map, &Function.identity/1)
+
+    validate_parsers(parsers)
 
     Parser.new(
       :choice,
@@ -47,11 +59,7 @@ defmodule Ergo.Combinators do
         if debug, do: Logger.info("Trying Choice<#{label}> on [#{ellipsize(input, 20)}]")
 
         with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx) do
-          if map_fn do
-            %{new_ctx | ast: map_fn.(new_ctx.ast)}
-          else
-            new_ctx
-          end
+          %{new_ctx | ast: map_fn.(new_ctx.ast)}
         end
       end,
       combinator: true,
@@ -118,6 +126,8 @@ defmodule Ergo.Combinators do
   def sequence(parsers, opts) when is_list(parsers) do
     label = Keyword.get(opts, :label, "#")
     map_fn = Keyword.get(opts, :map, nil)
+
+    validate_parsers(parsers)
 
     Parser.new(
       :sequence,

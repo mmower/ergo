@@ -71,7 +71,9 @@ defmodule Ergo.Context do
             ast: nil,
             debug: false,
             rules: [],
-            tracks: MapSet.new()
+            tracks: MapSet.new(),
+            depth: 0,
+            process: []
 
   @doc """
   `new` returns a newly initialised `Context`

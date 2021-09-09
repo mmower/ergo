@@ -7,6 +7,15 @@ defmodule Ergo.Utils do
 
       iex> Ergo.Utils.char_to_string(?h)
       "h"
+
+      iex> Ergo.Utils.char_to_string(?\\r)
+      "\\r"
+
+      iex> Ergo.Utils.char_to_string(?\\n)
+      "\\n"
+
+      iex> Ergo.Utils.char_to_string(?\\t)
+      "\\t"
   """
   def char_to_string(c) when is_integer(c) do
     List.to_string([c])
