@@ -1,6 +1,6 @@
 defmodule Ergo.Parser do
   alias __MODULE__
-  alias Ergo.{Context, ParserRefs}
+  alias Ergo.{Context, ParserRefs, Utils}
 
   require Logger
 
@@ -81,10 +81,16 @@ defmodule Ergo.Parser do
       iex> parser = many(wc())
       iex> assert %{rules: []} = Parser.invoke(parser, context)
   """
-  def diagnose(%Parser{ref: ref, type: type, label: label} = parser, %Context{rules: rules} = ctx) do
-    calling_ctx = %{ctx | rules: [{ref, type, label} | rules]}
-    with %{status: :ok} = updated_ctx <- Parser.call(parser, calling_ctx) do
-      %{updated_ctx | rules: rules}
+  def diagnose(%Parser{ref: ref, type: type, label: label} = parser, %Context{input: input, line: line, col: col, rules: rules, process: process, depth: depth} = ctx) do
+    padding = String.duplicate("  ", depth)
+    clip = Utils.ellipsize(input, 20)
+    Logger.debug("#{padding} attempting #{type} '#{label}' at #{line}:#{col} on: \"#{clip}\"")
+    %{status: status, ast: ast} = updated_ctx = Parser.call(parser, %{ctx | depth: depth+1, rules: [{ref, type, label, clip} | rules]})
+    Logger.debug("#{padding} status: #{inspect(status)} ast: #{inspect(ast)}")
+    entry = {{line, col}, clip, ref, type, label, status}
+    case updated_ctx do
+      %{status: :ok} -> %{updated_ctx | depth: depth, rules: rules, process: [entry | process]}
+      _ -> %{updated_ctx | depth: depth, process: [entry | process]}
     end
   end
 
