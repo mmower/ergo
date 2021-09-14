@@ -55,6 +55,17 @@ defmodule ErgoTest do
     assert %Context{status: :ok, ast: 0.5} = Ergo.parse(mantissa, "5")
     assert %Context{status: :ok, ast: 0.42000000000000004} = Ergo.parse(mantissa, "42")
 
+    combine = fn
+      [integer, decimal | []] ->
+        if integer >= 0 do
+          integer + decimal
+        else
+          integer - decimal
+        end
+      ast ->
+        Enum.sum(ast)
+    end
+
     number = sequence([
       integer,
       optional(
@@ -63,10 +74,12 @@ defmodule ErgoTest do
           mantissa
         ], map: &List.first/1)
       )
-    ], map: &Enum.sum/1)
+    ], map: combine)
 
     assert %Context{status: :ok, ast: 42} = Ergo.parse(number, "42")
     assert %Context{status: :ok, ast: 0.45} = Ergo.parse(number, "0.45")
+    assert %Context{status: :ok, ast: -42} = Ergo.parse(number, "-42")
+    assert %Context{status: :ok, ast: -4.2} = Ergo.parse(number, "-4.2")
   end
 
 end

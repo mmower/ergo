@@ -199,7 +199,47 @@ Ergo.parse(number, "42")
 
 Ergo.parse(number, "0.45")
 %Context{status: :ok, ast: 0.45}
+
+Ergo.parse(number, "-42")
+%Context{status: :ok, ast: -42}
 ```
+
+All looking good, just one more example:
+
+```elixir
+Ergo.parse(number, "-4.2")
+%Context{status: :ok, ast: -3.8}
+```
+
+Oops! There is a problem with our implementation in that we add together the integer and decimal parts. This works for positive numbers but in the latter case -4 + 0.2 = -3.8 not -4.2. When the integer part is negative we need to subtract the decimal part. We can no longer just use `Enum.sum` to process the result of the top-level sequence. Instead:
+
+```elixir
+combine = fn
+  [integer, decimal | []] ->
+    if integer >= 0 do
+      integer + decimal
+    else
+      integer - decimal
+    end
+  ast ->
+    Enum.sum(ast)
+end
+
+number = sequence([
+  integer,
+  optional(
+    sequence([
+      ignore(char(?.)),
+      mantissa
+    ], map: &List.first/1)
+  )
+], map: combine)
+
+Ergo.parse(number, "-4.2")
+%Context{status: :ok, ast: -4.2}
+
+```
+
 
 ## Conclusion
 
