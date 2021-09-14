@@ -8,6 +8,7 @@ To begin with we need to be able to parse digits. One option for that is to use 
 
 ```elixir
 alias Ergo
+alias Ergo.Context
 import Ergo.Terminals
 
 digit = char(?0..?9)
@@ -52,7 +53,7 @@ c_transform = fn ast ->
   |> Enum.sum
   end
 
-digits = many(digit()) |> transform(c_transform)
+digits = many(digit) |> transform(c_transform)
 
 Ergo.parse(digits, "42")
 %Context{status: :ok, ast: 42}
@@ -81,7 +82,7 @@ What about negative values? We need to look for a leading '-' character however,
 minus = char(?-)
 
 Ergo.parse(minus, "-")
-%{status: :ok, ast: 45}
+%Context{status: :ok, ast: 45}
 ```
 
 45 is the char value of the char '-'. We can now use the `optional` combinator to allow a minus to be matched, or not:
@@ -90,10 +91,10 @@ Ergo.parse(minus, "-")
 minus = optional(char(?-))
 
 Ergo.parse(minus, "-42")
-%{status: :ok, ast: 45}
+%Context{status: :ok, ast: 45}
 
 Ergo.parse(minus, "42")
-%{status: :ok, ast: nil}
+%Context{status: :ok, ast: nil}
 ```
 
 In the second case the status is `:ok` meaning the optional parser succeeded, however the ast is `nil` meaning nothing was matched. Let's make this a bit more useful:
@@ -105,6 +106,13 @@ minus = optional(char(?-)) |> transform(fn ast ->
     45 -> -1
   end
 end)
+
+Ergo.parse(minus, "-42")
+%Context{status: :ok, ast: -1}
+
+Ergo.parse(minus, "42")
+%Context{status: :ok, ast: 1}
+
 ```
 
 Now when `minus` matches a '-' it will transform it to the value -1. When it doesn't match anything it will transform it to the value 1. Now let's combine it with the other parser.
@@ -162,7 +170,7 @@ m_transform = fn ast ->
   |> Enum.sum
 end
 
-mantissa = many(digit(), map: m_transform)
+mantissa = many(digit, map: m_transform)
 
 Ergo.parse(mantissa, "5")
 %Context{status: :ok, ast: 0.5}
