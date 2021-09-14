@@ -61,7 +61,7 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = char(?H)
-      iex> assert %Context{status: :ok, char: ?H, ast: ?H, input: "ello World", index: 1, line: 1, col: 2} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: :ok, ast: ?H, input: "ello World", index: 1, line: 1, col: 2} = Ergo.parse(parser, "Hello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
@@ -76,7 +76,7 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = char(?A..?Z)
-      iex> assert %Context{status: :ok, char: ?H, ast: ?H, input: "ello World", index: 1, line: 1, col: 2} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: :ok, ast: ?H, input: "ello World", index: 1, line: 1, col: 2} = Ergo.parse(parser, "Hello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
@@ -91,7 +91,7 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = char([?a..?z, ?A..?Z])
-      iex> assert %Context{status: :ok, char: ?H, ast: ?H, input: "ello World", index: 1, line: 1, col: 2} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: :ok, ast: ?H, input: "ello World", index: 1, line: 1, col: 2} = Ergo.parse(parser, "Hello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
@@ -106,7 +106,7 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = char(-?a)
-      iex> assert %Context{status: :ok, input: "000", ast: ?0, char: ?0, index: 1, col: 2} = Ergo.parse(parser, "0000")
+      iex> assert %Context{status: :ok, input: "000", ast: ?0, index: 1, col: 2} = Ergo.parse(parser, "0000")
   """
   def char(c, opts \\ [])
 
@@ -117,10 +117,10 @@ defmodule Ergo.Terminals do
       :char,
       fn ctx ->
         case Context.next_char(ctx) do
-          %Context{status: :ok, char: ^c} = new_ctx ->
+          %Context{status: :ok, ast: ^c} = new_ctx ->
             new_ctx
 
-          %Context{status: :ok, char: u} ->
+          %Context{status: :ok, ast: u} ->
             %{
               ctx
               | status: {:error, :unexpected_char},
@@ -144,14 +144,14 @@ defmodule Ergo.Terminals do
       :not_char,
       fn ctx ->
         case Context.next_char(ctx) do
-          %Context{status: :ok, char: ^c} ->
+          %Context{status: :ok, ast: ^c} ->
             %{
               ctx
               | status: {:error, :unexpected_char},
                 message: "Should not have matched #{describe_char_match(c)}"
             }
 
-          %Context{status: :ok, char: _} = new_ctx ->
+          %Context{status: :ok, ast: _} = new_ctx ->
             new_ctx
 
           %Context{status: {:error, _}} = err_ctx ->
@@ -169,10 +169,10 @@ defmodule Ergo.Terminals do
       :char_rng,
       fn ctx ->
         case Context.next_char(ctx) do
-          %Context{status: :ok, char: c} = new_ctx when c in min..max ->
+          %Context{status: :ok, ast: c} = new_ctx when c in min..max ->
             new_ctx
 
-          %Context{status: :ok, char: c} ->
+          %Context{status: :ok, ast: c} ->
             %{
               ctx
               | status: {:error, :unexpected_char},
@@ -198,7 +198,7 @@ defmodule Ergo.Terminals do
             ctx
             | status: {:error, :unexpected_char},
               message:
-                "Expected: #{describe_char_match(l)} Actual: #{char_to_string(peek_ctx.char)}"
+                "Expected: #{describe_char_match(l)} Actual: #{char_to_string(peek_ctx.ast)}"
           }
 
           Enum.reduce_while(l, err_ctx, fn matcher, err_ctx ->
@@ -234,19 +234,19 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = digit()
-      iex> assert %Context{status: :ok, char: ?0, ast: ?0, input: "000", index: 1, line: 1, col: 2} = Ergo.parse(parser, "0000")
+      iex> assert %Context{status: :ok, ast: ?0, input: "000", index: 1, line: 1, col: 2} = Ergo.parse(parser, "0000")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> import Ergo.Terminals
       iex> parser = digit()
-      iex> assert %Context{status: {:error, :unexpected_char}, message: "Expected: 0..9 Actual: A", char: 0, input: "AAAA", index: 0, line: 1, col: 1} = Ergo.parse(parser, "AAAA")
+      iex> assert %Context{status: {:error, :unexpected_char}, message: "Expected: 0..9 Actual: A", input: "AAAA", index: 0, line: 1, col: 1} = Ergo.parse(parser, "AAAA")
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
       iex> context = Context.new(&Ergo.Parser.call/2, "")
       iex> parser = digit()
-      iex> assert %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", char: 0, input: "", index: 0, line: 1, col: 1} = Parser.invoke(parser, context)
+      iex> assert %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", input: "", index: 0, line: 1, col: 1} = Parser.invoke(parser, context)
   """
   def digit() do
     char(?0..?9, label: "Digit")
@@ -260,12 +260,12 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = alpha()
-      iex> assert %Context{status: :ok, input: "ello World", char: ?H, ast: ?H, index: 1, line: 1, col: 2} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: :ok, input: "ello World", ast: ?H, index: 1, line: 1, col: 2} = Ergo.parse(parser, "Hello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = alpha()
-      iex> assert %Context{status: :ok, input: "llo World", char: ?e, ast: ?e, index: 1, line: 1, col: 2} = Ergo.parse(parser, "ello World")
+      iex> assert %Context{status: :ok, input: "llo World", ast: ?e, index: 1, line: 1, col: 2} = Ergo.parse(parser, "ello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
@@ -284,17 +284,17 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = ws()
-      iex> assert %Context{status: :ok, char: ?\s, ast: ?\s, input: "World", index: 1, line: 1, col: 2}= Ergo.parse(parser, " World")
+      iex> assert %Context{status: :ok, ast: ?\s, input: "World", index: 1, line: 1, col: 2}= Ergo.parse(parser, " World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = ws()
-      iex> assert %Context{status: :ok, char: ?\t, ast: ?\t, input: "World", index: 1, line: 1, col: 2} = Ergo.parse(parser, "\tWorld")
+      iex> assert %Context{status: :ok, ast: ?\t, input: "World", index: 1, line: 1, col: 2} = Ergo.parse(parser, "\tWorld")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = ws()
-      iex> assert %Context{status: :ok, char: ?\n, ast: ?\n, input: "World", index: 1, line: 2, col: 1} = Ergo.parse(parser, "\nWorld")
+      iex> assert %Context{status: :ok, ast: ?\n, input: "World", index: 1, line: 2, col: 1} = Ergo.parse(parser, "\nWorld")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
@@ -314,17 +314,17 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = wc()
-      iex> assert %Context{status: :ok, char: ?H, ast: ?H, input: "ello World", index: 1, col: 2} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: :ok, ast: ?H, input: "ello World", index: 1, col: 2} = Ergo.parse(parser, "Hello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = wc()
-      iex> assert %Context{status: :ok, char: ?0, ast: ?0, input: " World", index: 1, col: 2} = Ergo.parse(parser, "0 World")
+      iex> assert %Context{status: :ok, ast: ?0, input: " World", index: 1, col: 2} = Ergo.parse(parser, "0 World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = wc()
-      iex> assert %Context{status: :ok, char: ?_, ast: ?_, input: "Hello", index: 1, col: 2} = Ergo.parse(parser, "_Hello")
+      iex> assert %Context{status: :ok, ast: ?_, input: "Hello", index: 1, col: 2} = Ergo.parse(parser, "_Hello")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
@@ -343,12 +343,12 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = literal("Hello")
-      iex> assert %Context{status: :ok, input: " World", ast: "Hello", char: ?o, index: 5, line: 1, col: 6} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: :ok, input: " World", ast: "Hello", index: 5, line: 1, col: 6} = Ergo.parse(parser, "Hello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = literal("Hellx")
-      iex> assert %Context{status: {:error, :unexpected_char}, message: "Expected: x Actual: o [in literal(Hellx)]", input: "o World", ast: [?l, ?l, ?e, ?H], char: ?l, index: 4, line: 1, col: 5} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: {:error, :unexpected_char}, message: "Expected: x Actual: o [in literal(Hellx)]", input: "o World", ast: [?l, ?l, ?e, ?H], index: 4, line: 1, col: 5} = Ergo.parse(parser, "Hello World")
   """
   def literal(s, opts \\ []) when is_binary(s) do
     map_fn = Keyword.get(opts, :map, nil)

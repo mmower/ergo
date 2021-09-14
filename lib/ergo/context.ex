@@ -38,10 +38,6 @@ defmodule Ergo.Context do
 
   Represents the current column of the input. Initially 1 it is incremented every time a character is read from the input and automatically resets whenever a `\n` is read.
 
-  * `char`
-
-  Represents the last character read from the input.
-
   * `ast`
 
   Represents the current data structure being built from the input.
@@ -67,7 +63,6 @@ defmodule Ergo.Context do
             index: 0,
             line: 1,
             col: 1,
-            char: 0,
             ast: nil,
             debug: false,
             rules: [],
@@ -141,7 +136,7 @@ defmodule Ergo.Context do
 
   If the `input` is empty returns `status: {:error, :unexpected_eoi}`.
 
-  Otherwise returns a new `Context` setting `char` to the character read and incrementing positional variables such as `index`, `line`, and `column` appropriately.
+  Otherwise returns a new `Context` setting `ast` to the character read and incrementing positional variables such as `index`, `line`, and `column` appropriately.
 
   ## Examples
 
@@ -149,7 +144,7 @@ defmodule Ergo.Context do
     iex> assert %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input"} = context
 
     iex> context = Context.next_char(Context.new(&Ergo.Parser.call/2, "Hello World"))
-    iex> assert %Context{status: :ok, input: "ello World", char: ?H, ast: ?H, index: 1, line: 1, col: 2} = context
+    iex> assert %Context{status: :ok, input: "ello World", ast: ?H, index: 1, line: 1, col: 2} = context
   """
   def next_char(context)
 
@@ -169,7 +164,6 @@ defmodule Ergo.Context do
       ctx
       | status: :ok,
         input: rest,
-        char: char,
         ast: char,
         index: new_index,
         line: new_line,
@@ -187,7 +181,7 @@ defmodule Ergo.Context do
   @doc """
   ## Examples
       iex> context = Context.new(&Ergo.Parser.call/2, "Hello")
-      iex> assert %Context{status: :ok, char: ?H, ast: ?H, input: "ello", index: 1, line: 1, col: 2} = Context.peek(context)
+      iex> assert %Context{status: :ok, ast: ?H, input: "ello", index: 1, line: 1, col: 2} = Context.peek(context)
 
       iex> context = Context.new(&Ergo.Parser.call/2, "")
       iex> assert %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", index: 0, line: 1, col: 1} = Context.peek(context)

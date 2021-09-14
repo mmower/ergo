@@ -23,7 +23,7 @@ defmodule Ergo.Numeric do
       iex> alias Ergo.Context
       iex> import Ergo.Numeric
       iex> context = Ergo.parse(uint(), "2345")
-      iex> assert %Context{status: :ok, ast: 2345, char: ?5, index: 4, col: 5} = context
+      iex> assert %Context{status: :ok, ast: 2345, index: 4, col: 5} = context
   """
   def uint(opts \\ []) do
     label = Keyword.get(opts, :label, "#")
