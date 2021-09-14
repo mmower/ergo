@@ -49,7 +49,8 @@ defmodule Ergo.MixProject do
       "guides/parser_combinator_intro.md",
       "guides/comparisons.md",
       "guides/basic_parser.md",
-      "guides/debugging.md"
+      "guides/debugging.md",
+      "guides/guidance.md"
     ]
   end
 
