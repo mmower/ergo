@@ -2,12 +2,11 @@ defmodule ErgoTest do
   use ExUnit.Case
   doctest Ergo
 
-  test "numeric example" do
-    alias Ergo
-    alias Ergo.Context
-    import Ergo.Terminals, except: [digit: 0]
-    import Ergo.Combinators
+  alias Ergo
+  alias Ergo.Context
+  import Ergo.{Terminals, Combinators}
 
+  test "parses numbers" do
     digit = char(?0..?9)
     assert %Context{status: :ok, ast: 52} = Ergo.parse(digit, "42")
 

@@ -30,15 +30,9 @@ defmodule Ergo do
   """
   def parse(%Parser{} = parser, input) when is_binary(input) do
     Parser.invoke(parser, Context.new(&Parser.call/2, input))
-    # Parser.call(parser, Context.new(input, parser: &))
   end
 
   def diagnose(%Parser{} = parser, input) when is_binary(input) do
     Parser.invoke(parser, Context.new(&Parser.diagnose/2, input))
-    # Parser.call(parser, Context.new(input, diagnose: true))
-
-    # Put a reference to the parsing function into the context
-    # &Parser.diagnose/2
-    # &Parser.call/2
   end
 end

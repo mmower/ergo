@@ -237,9 +237,7 @@ number = sequence([
 
 Ergo.parse(number, "-4.2")
 %Context{status: :ok, ast: -4.2}
-
 ```
-
 
 ## Conclusion
 
