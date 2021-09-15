@@ -81,4 +81,28 @@ defmodule ErgoTest do
     assert %Context{status: :ok, ast: -4.2} = Ergo.parse(number, "-4.2")
   end
 
+  import Ergo.Numeric
+
+  def expression() do
+    add = char(?+)
+    subtract = char(?-)
+    multiple = char(?*)
+    divide = char(?/)
+
+    sequence([
+      number(), many(choice([
+        choice([
+          sequence([ignore(add), number()], map: fn [n] -> {:+, n} end),
+          sequence([ignore(subtract), number()], map: fn [n] -> {:-, n} end),
+          sequence([ignore(multiple), number()], map: fn [n] -> {:*, n} end),
+          sequence([ignore(divide), number()], map: fn [n] -> {:/, n} end)
+        ])
+      ]))
+    ], map: &List.flatten/1)
+  end
+
+  test "parses simple mathematical expression" do
+    assert %Context{status: :ok, ast: [1, {:*, 2}, {:+, 3}]} = Ergo.parse(expression(), "1*2+3")
+  end
+
 end
