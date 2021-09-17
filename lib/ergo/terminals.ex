@@ -451,12 +451,7 @@ defmodule Ergo.Terminals do
   def delimited_text(open_char, close_char) do
     Parser.new(
       :nested,
-      fn ctx ->
-        ctx
-        |> Context.push_state({0, []})
-        |> nested_next_char({0, []}, open_char, close_char)
-        |> Context.pop_state()
-      end
+      fn ctx -> nested_next_char(ctx, {0, []}, open_char, close_char) end
     )
   end
 
