@@ -213,8 +213,51 @@ defmodule Ergo.Terminals do
     )
   end
 
-  defp describe_char_match(c) when is_integer(c) do
+  @doc """
+  The not_char matcher accepts a char or a list of chars and will match any
+  char that is not in the list.
+
+  # Examples
+      iex> alias Ergo.Context
+      iex> import Ergo.Terminals
+      iex> parser = not_char(?0)
+      iex> assert %Context{status: {:error, :unexpected_char}, message: "Should not have matched 0", input: "0000"} = Ergo.parse(parser, "0000")
+      iex> assert %Context{status: :ok, ast: ?1} = Ergo.parse(parser, "1111")
+      iex> parser = not_char([?{, ?}])
+      iex> assert %Context{status: {:error, :unexpected_char}, message: "Should not have matched {", input: "{}"} = Ergo.parse(parser, "{}")
+      iex> assert %Context{status: {:error, :unexpected_char}, message: "Should not have matched }", input: "}"} = Ergo.parse(parser, "}")
+  """
+  def not_char(char) when is_integer(char) do
+    not_char([char])
+  end
+
+  def not_char(l) when is_list(l) do
+    Parser.new(
+      :not_char,
+      fn ctx ->
+        with %Context{status: :ok, ast: ast} <- Context.peek(ctx) do
+          case Enum.member?(l, ast) do
+            true ->
+              %{
+                ctx
+                | status: {:error, :unexpected_char},
+                  message: "Should not have matched #{char_to_string(ast)}"
+              }
+
+            false ->
+              Context.next_char(ctx)
+          end
+        end
+      end
+    )
+  end
+
+  defp describe_char_match(c) when is_integer(c) and c > 0 do
     char_to_string(c)
+  end
+
+  defp describe_char_match(c) when is_integer(c) do
+    "!#{char_to_string(-c)}"
   end
 
   defp describe_char_match(min..max) when is_integer(min) and is_integer(max) do
@@ -389,5 +432,72 @@ defmodule Ergo.Terminals do
           {:halt, %{ctx | status: {:error, error}, message: message}}
       end
     end)
+  end
+
+  @doc """
+  The delimited_text/2 parser matches a sequence of text delimited `open_char` and
+  `close_char`. Because it is expected that `open_char` may appear multiple times
+  within the sequence it balances the tokens to ensure the right number of closing
+  tokens is matched.
+
+  # Examples
+        iex> alias Ergo
+        iex> alias Ergo.Context
+        iex> import Ergo.Terminals
+        iex> parser = delimited_text(?{, ?})
+        iex> assert %Context{status: :ok, ast: "{return {foo: \\"bar\\", bar: {baz: \\"quux\\"}};}", input: ""} = Ergo.parse(parser, "{return {foo: \\"bar\\", bar: {baz: \\"quux\\"}};}")
+        iex> assert %Context{status: :ok, ast: "{function b(y) {return x + y;}; return b;}", input: "foo"} = Ergo.parse(parser, "{function b(y) {return x + y;}; return b;}foo")
+  """
+  def delimited_text(open_char, close_char) do
+    Parser.new(
+      :nested,
+      fn ctx ->
+        ctx
+        |> Context.push_state({0, []})
+        |> nested_next_char({0, []}, open_char, close_char)
+        |> Context.pop_state()
+      end
+    )
+  end
+
+  defp nested_next_char(ctx, {count, chars}, open_char, close_char) when open_char != close_char do
+    with %{status: :ok, ast: ast} = new_ctx <- Context.next_char(ctx) do
+      case ast do
+        ^open_char ->
+          nested_next_char(new_ctx, {count + 1, [ast | chars]}, open_char, close_char)
+
+        ^close_char ->
+          case count do
+            0 ->
+              %{
+                new_ctx
+                | status: {:error, :unexpected_char},
+                  message:
+                    "Expected #{char_to_string(open_char)} Actual: #{char_to_string(close_char)}"
+              }
+
+            _ ->
+              count = count - 1
+              case count do
+                0 -> %{new_ctx | ast: [ast | chars] |> Enum.reverse() |> List.to_string()}
+                _ -> nested_next_char(new_ctx, {count, [ast | chars]}, open_char, close_char)
+              end
+          end
+
+        _char ->
+          case count do
+            0 ->
+              %{
+                new_ctx
+                | status: {:error, :unexpected_char},
+                  message:
+                    "Expected #{char_to_string(open_char)} Actual: #{char_to_string(ast)}"
+              }
+
+            _ ->
+              nested_next_char(new_ctx, {count, [ast | chars]}, open_char, close_char)
+          end
+      end
+    end
   end
 end
