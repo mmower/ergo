@@ -4,20 +4,9 @@ defmodule Ergo.Terminals do
   require Logger
 
   @moduledoc ~S"""
-  `Ergo.Terminals` contains the terminal parsers.
-
-  A terminal parser is a parser that is not parameterised with another parser and works directly with the input.
-
-  # Parsers
-
-  * eoi
-  * char
-  * digit
-  * alpha
-  * ws
-  * wc
-  * literal
-
+  `Ergo.Terminals` contains the terminal parsers, which are those parsers not
+  parameterized with other parsers and therefore work more at the level of text
+  than structure.
   """
 
   @doc """
