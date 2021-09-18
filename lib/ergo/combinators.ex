@@ -45,7 +45,7 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Terminals, Combinators}
       iex> parser = choice([literal("Foo"), literal("Bar")])
       iex> context = Ergo.parse(parser, "Hello World")
-      iex> %Context{status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil, input: "Hello World"} = context
+      iex> %Context{status: {:error, :no_valid_choice}, message: "No valid choice in #", ast: nil, input: "Hello World"} = context
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
     label = Keyword.get(opts, :label, "#")
@@ -56,9 +56,9 @@ defmodule Ergo.Combinators do
     Parser.new(
       :choice,
       fn %Context{debug: debug, input: input} = ctx ->
-        if debug, do: Logger.info("Trying Choice<#{label}> on [#{ellipsize(input, 20)}]")
+        if debug, do: Logger.info("Trying choice<#{label}> on [#{ellipsize(input, 20)}]")
 
-        with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx) do
+        with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx, label) do
           %{new_ctx | ast: map_fn.(new_ctx.ast)}
         end
       end,
@@ -67,10 +67,10 @@ defmodule Ergo.Combinators do
     )
   end
 
-  defp apply_parsers_in_turn(parsers, ctx) do
+  defp apply_parsers_in_turn(parsers, ctx, label) do
     Enum.reduce_while(
       parsers,
-      %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice", ast: nil},
+      %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice in #{label}", ast: nil},
       fn parser, %Context{debug: debug} = ctx ->
         case Parser.invoke(parser, ctx) do
           %Context{status: :ok, ast: ast} = new_ctx ->
@@ -315,6 +315,28 @@ defmodule Ergo.Combinators do
     )
   end
 
+  @doc """
+  The string/1 parser takes a parser that returns an AST which is a list of characters
+  and converts the AST into a string.
+
+  # Examples
+      iex> alias Ergo
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators}
+      iex> parser = many(alpha()) |> string()
+      iex> assert %Context{status: :ok, ast: "FourtyTwo"} = Ergo.parse(parser, "FourtyTwo")
+  """
+  def string(parser) do
+    Parser.new(
+      :string,
+      fn ctx ->
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
+          %{new_ctx | ast: List.to_string(ast)}
+        end
+      end
+    )
+  end
+
   @doc ~S"""
   The `transform/2` parser runs a transforming function on the AST of its child parser.
 
@@ -413,4 +435,38 @@ defmodule Ergo.Combinators do
       label: label
     )
   end
+
+  @doc """
+  The satisfy/3 parser takes a parser and a predicate function. If the parser
+  is successful the AST is passed to the predicate function. If the predicate
+  function returns true the parser returns the successful context, otherwise
+  an error context is returned.
+
+  # Example
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators, Numeric}
+      iex> parser = satisfy(any(), fn char -> char in (?0..?9) end, label: "digit char")
+      iex> assert %Context{status: :ok, ast: ?4} = Ergo.parse(parser, "4")
+      iex> assert %Context{status: {:error, :unsatisfied}} = Ergo.parse(parser, "!")
+      iex> parser = satisfy(number(), fn n -> Integer.mod(n, 2) == 0 end, label: "even number")
+      iex> assert %Context{status: :ok, ast: 42} = Ergo.parse(parser, "42")
+      iex> assert %Context{status: {:error, :unsatisfied}} = Ergo.parse(parser, "27")
+  """
+  def satisfy(%Parser{} = parser, pred_fn, opts \\ []) when is_function(pred_fn) do
+    label = Keyword.get(opts, :label, "#")
+
+    Parser.new(
+      :satisfies,
+      fn %Context{} = ctx ->
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
+          if pred_fn.(ast) do
+            new_ctx
+          else
+            %{ctx | status: {:error, :unsatisfied}, message: "Failed to satisfy #{label}"}
+          end
+        end
+      end
+    )
+  end
+
 end

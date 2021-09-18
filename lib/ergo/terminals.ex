@@ -42,6 +42,27 @@ defmodule Ergo.Terminals do
   end
 
   @doc """
+  The `any/0` parser matches any character.
+
+  # Examples
+      iex> alias Ergo.Context
+      iex> import Ergo.Terminals
+      iex> parser = any()
+      iex> assert %Context{status: :ok, ast: ?H} = Ergo.parse(parser, "H")
+      iex> assert %Context{status: :ok, ast: ?e} = Ergo.parse(parser, "e")
+      iex> assert %Context{status: :ok, ast: ?!} = Ergo.parse(parser, "!")
+      iex> assert %Context{status: :ok, ast: ?0} = Ergo.parse(parser, "0")
+  """
+  def any() do
+    Parser.new(
+      :any,
+      fn ctx ->
+        Context.next_char(ctx)
+      end
+    )
+  end
+
+  @doc """
 
   The `char/1` parser is a terminal parser that matches a specific character.
 
