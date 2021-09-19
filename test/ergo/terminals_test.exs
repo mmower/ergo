@@ -5,7 +5,7 @@ defmodule Ergo.TerminalsTest do
   describe "delimited_text/2" do
     alias Ergo
     alias Ergo.Context
-    import Ergo.{Terminals, Combinators}
+    import Ergo.Terminals
 
     test "success: parses JSON blob" do
       parser = delimited_text(?{, ?})

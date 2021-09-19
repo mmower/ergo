@@ -337,6 +337,28 @@ defmodule Ergo.Combinators do
     )
   end
 
+  @doc """
+  The string/1 parser takes a parser that returns an AST which is a string and
+  converts the AST into an atom.
+
+  # Examples
+      iex> alias Ergo
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators}
+      iex> parser = many(wc()) |> string() |> atom()
+      iex> assert %Context{status: :ok, ast: :fourty_two} = Ergo.parse(parser, "fourty_two")
+  """
+  def atom(parser) do
+    Parser.new(
+      :atom,
+      fn ctx ->
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
+          %{new_ctx | ast: String.to_atom(ast)}
+        end
+      end
+    )
+  end
+
   @doc ~S"""
   The `transform/2` parser runs a transforming function on the AST of its child parser.
 
