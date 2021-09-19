@@ -1,7 +1,7 @@
 defmodule Ergo.MixProject do
   use Mix.Project
 
-  @version "0.4.5"
+  @version "0.4.6"
 
   def project do
     [
@@ -50,6 +50,7 @@ defmodule Ergo.MixProject do
       "guides/comparisons.md",
       "guides/basic_parser.md",
       "guides/debugging.md",
+      "guides/recursion.md",
       "guides/guidance.md"
     ]
   end

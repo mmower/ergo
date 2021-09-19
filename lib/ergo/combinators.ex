@@ -469,4 +469,18 @@ defmodule Ergo.Combinators do
     )
   end
 
+  @doc """
+  The lazy/1 parser is intended for use in cases where constructing parsers
+  creates a recursive call. By using `lazy` the original parser call is
+  deferred until later, breaking the infinite recursion.
+  """
+  defmacro lazy(parser) do
+    quote do
+      Parser.new(
+        :lazy,
+        fn ctx -> Parser.invoke(unquote(parser), ctx) end
+      )
+    end
+  end
+
 end
