@@ -165,6 +165,33 @@ defmodule Ergo.Combinators do
     end)
   end
 
+  @doc """
+  The hoist/1 parser takes a parser expected to return an AST which is a
+  1-item list. The returned parser extracts the item from the list and
+  returns an AST of just that item.
+
+  This often comes up with the sequence/2 parser and ignore, where all but
+  one item in a sequence are ignored. Using hoist pulls that item up so that
+  subsequent parsers don't need to deal with the list.
+
+  # Examples
+      iex> alias Ergo
+      iex> alias Ergo.Context
+      iex> import Ergo.{Terminals, Combinators}
+      iex> parser = sequence([ignore(many(char(?a))), char(?b)]) |> hoist()
+      iex> assert %Context{status: :ok, ast: ?b} = Ergo.parse(parser, "aaaaaaaab")
+  """
+  def hoist(parser) do
+    Parser.new(
+      :hoist,
+      fn ctx ->
+        with %Context{status: :ok, ast: [item | []]} = new_ctx <- Parser.invoke(parser, ctx) do
+          %{new_ctx | ast: item}
+        end
+      end
+    )
+  end
+
   @doc ~S"""
   ## Examples
 
