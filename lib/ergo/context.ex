@@ -65,7 +65,8 @@ defmodule Ergo.Context do
             col: 1,
             ast: nil,
             debug: false,
-            rules: [],
+            parser: nil,
+            seq: [],
             tracks: MapSet.new(),
             depth: 0,
             process: []

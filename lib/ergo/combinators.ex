@@ -420,6 +420,31 @@ defmodule Ergo.Combinators do
   end
 
   @doc ~S"""
+  The replace/3 combinator replaces the AST value of it's child with a constant.
+
+  ## Examples
+      iex> alias Ergo.Context
+      iex> alias Ergo
+      iex> import Ergo.{Combinators, Terminals}
+      iex> parser = ignore(literal("foo")) |> replace(:foo)
+      iex> assert %Context{status: {:error, _}} = Ergo.parse(parser, "flush")
+  """
+  def replace(%Parser{} = parser, replacement_value, opts \\ []) do
+    label = Keyword.get(opts, :label, "#")
+
+    Parser.new(
+      :replace,
+      fn %Context{} = ctx ->
+        with %Context{status: :ok} = new_ctx <- Parser.invoke(parser, ctx) do
+          %{new_ctx | ast: replacement_value}
+        end
+      end,
+      combinator: true,
+      label: label
+    )
+  end
+
+  @doc ~S"""
   The `lookahead` parser accepts a parser and matches it but does not update the context when it succeeds.
 
   ## Example

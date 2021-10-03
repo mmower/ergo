@@ -405,12 +405,7 @@ defmodule Ergo.Terminals do
   """
   def literal(s, opts \\ []) when is_binary(s) do
     map_fn = Keyword.get(opts, :map, nil)
-
-    label =
-      case Keyword.get(opts, :label, nil) do
-        nil -> "literal(#{s})"
-        l -> l
-      end
+    label = Keyword.get(opts, :label, "literal(#{s})")
 
     Parser.new(
       :literal,

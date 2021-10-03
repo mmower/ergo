@@ -9,7 +9,10 @@ defmodule Ergo.Parser do
 
     defexception [:message]
 
-    def exception({{_ref, description, _index, line, col}, %{tracks: tracks}}) do
+    def exception(%{
+          context: %{dedescription: description, line: line, col: col},
+          parser: %{tracks: tracks}
+        }) do
       message =
         Enum.reduce(
           tracks,
@@ -28,13 +31,11 @@ defmodule Ergo.Parser do
   them in a `Parser` record that can hold arbitrary metadata. The primary use for the metadata is
   the storage of debugging information.
   """
-  defstruct [
-    type: nil,
-    combinator: false,
-    parser_fn: nil,
-    ref: nil,
-    label: "#"
-  ]
+  defstruct type: nil,
+            combinator: false,
+            parser_fn: nil,
+            ref: nil,
+            label: "#"
 
   @doc ~S"""
   `new/2` creates a new `Parser` from the given parsing function and with the specified metadata.
@@ -54,7 +55,7 @@ defmodule Ergo.Parser do
   """
 
   def invoke(%Parser{} = parser, %Context{invoke_fn: invoke_fn} = ctx) do
-    invoke_fn.(parser, ctx)
+    invoke_fn.(parser, %{ctx | parser: parser})
   end
 
   @doc ~S"""
@@ -79,17 +80,26 @@ defmodule Ergo.Parser do
       iex> import Ergo.{Combinators, Terminals}
       iex> context = Context.new(&Ergo.Parser.diagnose/2, "Hello World")
       iex> parser = many(wc())
-      iex> assert %{rules: []} = Parser.invoke(parser, context)
+      iex> assert %{seq: []} = Parser.invoke(parser, context)
   """
-  def diagnose(%Parser{ref: ref, type: type, label: label} = parser, %Context{input: input, line: line, col: col, rules: rules, process: process, depth: depth} = ctx) do
+  def diagnose(
+        %Parser{ref: ref, type: type, label: label} = parser,
+        %Context{input: input, line: line, col: col, seq: seq, process: process, depth: depth} =
+          ctx
+      ) do
     padding = String.duplicate("  ", depth)
     clip = Utils.ellipsize(input, 20)
     Logger.debug("#{padding} attempting #{type} '#{label}' at #{line}:#{col} on: \"#{clip}\"")
-    %{status: status, ast: ast} = updated_ctx = Parser.call(parser, %{ctx | depth: depth+1, rules: [{ref, type, label, clip} | rules]})
+
+    %{status: status, ast: ast} =
+      updated_ctx =
+      Parser.call(parser, %{ctx | depth: depth + 1})
+
     Logger.debug("#{padding} status: #{inspect(status)} ast: #{inspect(ast)}")
     entry = {{line, col}, clip, ref, type, label, status}
+
     case updated_ctx do
-      %{status: :ok} -> %{updated_ctx | depth: depth, rules: rules, process: [entry | process]}
+      %{status: :ok} -> %{updated_ctx | depth: depth, seq: seq, process: [entry | process]}
       _ -> %{updated_ctx | depth: depth, process: [entry | process]}
     end
   end
@@ -107,12 +117,16 @@ defmodule Ergo.Parser do
     iex> context2 = Parser.track_parser(context, parser)
     iex> assert Context.parser_tracked?(context2, parser.ref)
   """
-  def track_parser(%Context{} = ctx, %Parser{ref: ref} = parser) do
+  def track_parser(
+        %Context{} = ctx,
+        %Parser{ref: ref} = parser
+      ) do
     if Context.parser_tracked?(ctx, ref) do
-      raise Ergo.Parser.CycleError, context: ctx, parser: parser
+      raise Ergo.Parser.CycleError, %{context: ctx, parser: parser}
     else
       Context.track_parser(ctx, ref)
     end
   end
+
 
 end
