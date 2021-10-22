@@ -140,4 +140,16 @@ defmodule Ergo.Meta do
   #   )
   # end
 
+  def suppress_caller_logging(%Parser{} = parser) do
+    Parser.new(
+      :suppress,
+      fn %Context{caller_logging: caller_logging} = ctx ->
+        ctx_2 = Parser.invoke(parser, %{ctx | caller_logging: false})
+        %{ctx_2 | caller_logging: caller_logging}
+      end,
+      combinator: true
+    )
+
+  end
+
 end

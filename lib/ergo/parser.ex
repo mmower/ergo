@@ -35,6 +35,8 @@ defmodule Ergo.Parser do
             combinator: false,
             parser_fn: nil,
             ref: nil,
+            debug: false,
+            err: nil,
             label: "#"
 
   @doc ~S"""
@@ -54,8 +56,30 @@ defmodule Ergo.Parser do
   debugging variants of the parsers that could be subject to different behaviours)
   """
 
-  def invoke(%Parser{} = parser, %Context{invoke_fn: invoke_fn} = ctx) do
-    invoke_fn.(parser, %{ctx | parser: parser})
+  def invoke(%Parser{} = parser, %Context{invoke_fn: invoke_fn, called_from: called_from, parser: caller} = ctx) do
+    if ctx.caller_logging do
+      invoke_fn.(parser, %{ctx | parser: parser, called_from: [caller | called_from]})
+    else
+      invoke_fn.(parser, %{ctx | parser: parser})
+    end
+  end
+
+  @doc """
+  The rewrite_error/2 call allows a higher-level parser to rewrite the error returned by a subordinate
+  parser, translating it into something a user is more likely to be able to understand.
+  """
+
+  def rewrite_error(%Context{status: {:error, _} = status} = ctx, %Parser{err: err}) when is_function(err) do
+    IO.puts("\nREWRITE ERROR\n")
+    try do
+      %{ctx | status: err.(status)}
+    rescue
+      _e in FunctionClauseError -> ctx
+    end
+  end
+
+  def rewrite_error(ctx, _parser) do
+    ctx
   end
 
   @doc ~S"""
@@ -67,6 +91,7 @@ defmodule Ergo.Parser do
     |> Context.reset_status()
     |> track_parser(parser)
     |> parser_fn.()
+    |> rewrite_error(parser)
   end
 
   @doc ~S"""
@@ -80,28 +105,40 @@ defmodule Ergo.Parser do
       iex> import Ergo.{Combinators, Terminals}
       iex> context = Context.new(&Ergo.Parser.diagnose/2, "Hello World")
       iex> parser = many(wc())
-      iex> assert %{seq: []} = Parser.invoke(parser, context)
+      iex> assert %{status: :ok} = Parser.invoke(parser, context)
   """
-  def diagnose(
-        %Parser{ref: ref, type: type, label: label} = parser,
-        %Context{input: input, line: line, col: col, seq: seq, process: process, depth: depth} =
-          ctx
-      ) do
+  def diagnose(%Parser{} = parser, %Context{depth: depth, process: process} = ctx) do
+    debug = should_debug?(parser, ctx)
+
+    if debug, do: debug_entry(parser, ctx)
+
+    updated_ctx = Parser.call(parser, %{ctx | depth: depth + 1})
+
+    if debug, do: debug_exit(parser, updated_ctx)
+
+    %{updated_ctx | depth: depth, process: [process_entry(parser, ctx) | process]}
+  end
+
+  defp process_entry(%Parser{type: type, label: label, ref: ref}, %Context{status: status, line: line, col: col, input: input}) do
+    {{line, col}, Utils.ellipsize(input, 20), ref, type, label, status}
+  end
+
+  defp should_debug?(%Parser{combinator: true, debug: _debug}, %Context{}) do
+    true # debug
+  end
+
+  defp should_debug?(%Parser{combinator: false}, %Context{called_from: [caller | _]}) do
+    caller.debug
+  end
+
+  defp debug_entry(%Parser{type: type, label: label}, %Context{depth: depth, line: line, col: col, input: input}) do
     padding = String.duplicate("  ", depth)
-    clip = Utils.ellipsize(input, 20)
-    Logger.debug("#{padding} attempting #{type} '#{label}' at #{line}:#{col} on: \"#{clip}\"")
+    Logger.debug("#{padding} -> #{type}(#{label}) at #{line}:#{col} on: \"#{Utils.ellipsize(input, 20)}\"")
+  end
 
-    %{status: status, ast: ast} =
-      updated_ctx =
-      Parser.call(parser, %{ctx | depth: depth + 1})
-
-    Logger.debug("#{padding} status: #{inspect(status)} ast: #{inspect(ast)}")
-    entry = {{line, col}, clip, ref, type, label, status}
-
-    case updated_ctx do
-      %{status: :ok} -> %{updated_ctx | depth: depth, seq: seq, process: [entry | process]}
-      _ -> %{updated_ctx | depth: depth, process: [entry | process]}
-    end
+  defp debug_exit(%Parser{type: type, label: label}, %Context{status: status, ast: ast, message: message, depth: depth}) do
+    padding = String.duplicate("  ", depth)
+    Logger.debug("#{padding} <- #{type}(#{label}) status: #{inspect(status)} message: #{message} ast: #{inspect(ast)}")
   end
 
   @doc ~S"""
@@ -127,6 +164,5 @@ defmodule Ergo.Parser do
       Context.track_parser(ctx, ref)
     end
   end
-
 
 end

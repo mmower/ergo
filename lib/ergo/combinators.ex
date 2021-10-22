@@ -45,11 +45,12 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Terminals, Combinators}
       iex> parser = choice([literal("Foo"), literal("Bar")])
       iex> context = Ergo.parse(parser, "Hello World")
-      iex> %Context{status: {:error, :no_valid_choice}, message: "No valid choice in #", ast: nil, input: "Hello World"} = context
+      iex> %Context{status: {:error, :no_valid_choice}, message: "No valid choice(#)", ast: nil, input: "Hello World"} = context
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
     label = Keyword.get(opts, :label, "#")
     map_fn = Keyword.get(opts, :map, &Function.identity/1)
+    debug = Keyword.get(opts, :debug, false)
 
     validate_parsers(parsers)
 
@@ -63,14 +64,15 @@ defmodule Ergo.Combinators do
         end
       end,
       combinator: true,
-      label: label
+      label: label,
+      debug: debug
     )
   end
 
-  defp apply_parsers_in_turn(parsers, ctx, label) do
+  defp apply_parsers_in_turn(parsers, %Context{} = ctx, label) do
     Enum.reduce_while(
       parsers,
-      %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice in #{label}", ast: nil},
+      %{ctx | status: {:error, :no_valid_choice}, message: "No valid choice(#{label})", ast: nil},
       fn parser, %Context{debug: debug} = ctx ->
         case Parser.invoke(parser, ctx) do
           %Context{status: :ok, ast: ast} = new_ctx ->
@@ -126,6 +128,8 @@ defmodule Ergo.Combinators do
   def sequence(parsers, opts) when is_list(parsers) do
     label = Keyword.get(opts, :label, "#")
     map_fn = Keyword.get(opts, :map, nil)
+    debug = Keyword.get(opts, :debug, false)
+    err = Keyword.get(opts, :err, nil)
 
     validate_parsers(parsers)
 
@@ -147,6 +151,8 @@ defmodule Ergo.Combinators do
             err_ctx
         end
       end,
+      debug: debug,
+      err: err,
       combinator: true,
       label: label
     )
@@ -229,6 +235,7 @@ defmodule Ergo.Combinators do
     min = Keyword.get(opts, :min, 0)
     max = Keyword.get(opts, :max, :infinity)
     map_fn = Keyword.get(opts, :map, nil)
+    debug = Keyword.get(opts, :debug, false)
 
     Parser.new(
       :many,
@@ -243,7 +250,8 @@ defmodule Ergo.Combinators do
         end
       end,
       combinator: true,
-      label: label
+      label: label,
+      debug: debug
     )
   end
 
@@ -253,7 +261,7 @@ defmodule Ergo.Combinators do
     case Parser.invoke(parser, ctx) do
       %Context{status: {:error, _}} ->
         if count < min do
-          %{ctx | status: {:error, :many_less_than_min}, ast: nil}
+          %{ctx | status: {:error, :many_less_than_min}, message: "in many #{count} less than #{min}", ast: nil}
         else
           ctx
         end

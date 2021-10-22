@@ -60,13 +60,16 @@ defmodule Ergo.Context do
             status: :ok,
             message: nil,
             input: "",
+            consumed: "",
             index: 0,
             line: 1,
             col: 1,
             ast: nil,
+            aux: %{},
             debug: false,
             parser: nil,
-            seq: [],
+            called_from: [],
+            caller_logging: true,
             tracks: MapSet.new(),
             depth: 0,
             process: []
@@ -157,7 +160,7 @@ defmodule Ergo.Context do
     }
   end
 
-  def next_char(%Context{input: input, index: index, line: line, col: col} = ctx) do
+  def next_char(%Context{input: input, consumed: consumed, index: index, line: line, col: col} = ctx) do
     <<char::utf8, rest::binary>> = input
     {new_index, new_line, new_col} = wind_forward({index, line, col}, char == ?\n)
 
@@ -165,6 +168,7 @@ defmodule Ergo.Context do
       ctx
       | status: :ok,
         input: rest,
+        consumed: consumed <> List.to_string([char]),
         ast: char,
         index: new_index,
         line: new_line,
