@@ -64,8 +64,8 @@ defmodule Ergo.Context do
             index: 0,
             line: 1,
             col: 1,
+            data: %{},
             ast: nil,
-            aux: %{},
             debug: false,
             parser: nil,
             called_from: [],
@@ -75,10 +75,7 @@ defmodule Ergo.Context do
             process: []
 
   @doc """
-  `new` returns a newly initialised `Context`
-
-
-  with `input` set to the string passed in.
+  `new` returns a newly initialised `Context` with `input` set to the string passed in.
 
   ## Examples:
 
@@ -254,5 +251,9 @@ defmodule Ergo.Context do
       f when is_function(f) -> %{ctx | ast: f.(ast)}
       nil -> ctx
     end
+  end
+
+  def transform(%Context{} = ctx, tr_fn) when is_function(tr_fn) do
+    tr_fn.(ctx)
   end
 end

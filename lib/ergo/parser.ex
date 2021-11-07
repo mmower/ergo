@@ -123,12 +123,12 @@ defmodule Ergo.Parser do
     {{line, col}, Utils.ellipsize(input, 20), ref, type, label, status}
   end
 
-  defp should_debug?(%Parser{combinator: true, debug: _debug}, %Context{}) do
-    true # debug
+  defp should_debug?(%Parser{combinator: true}, %Context{}) do
+    true
   end
 
   defp should_debug?(%Parser{combinator: false}, %Context{called_from: [caller | _]}) do
-    caller.debug
+    !is_nil(caller) && caller.debug
   end
 
   defp debug_entry(%Parser{type: type, label: label}, %Context{depth: depth, line: line, col: col, input: input}) do

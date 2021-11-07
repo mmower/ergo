@@ -91,7 +91,7 @@ defmodule Ergo.Numeric do
     many(digit(),
       label: label,
       min: 1,
-      map: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end
+      ast: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end
     )
   end
 
@@ -130,7 +130,7 @@ defmodule Ergo.Numeric do
 
     sequence(
       [
-        optional(char(?-), map: fn _ -> -1 end, label: "-?"),
+        optional(char(?-), ast: fn _ -> -1 end, label: "-?"),
         choice(
           [
             decimal(),
@@ -141,7 +141,7 @@ defmodule Ergo.Numeric do
       ],
       type: :number,
       label: label,
-      map: &Enum.product/1
+      ast: &Enum.product/1
     )
   end
 end

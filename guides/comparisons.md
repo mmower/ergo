@@ -37,7 +37,7 @@ while in Ergo style you'd write:
 ```elixir
 act =
     sequence([
-        literal("Act", map: fn _ast -> :act end),
+        literal("Act", ast: fn _ast -> :act end),
         ignore(whitespace),
         id,
         ignore(whitespace),

@@ -35,7 +35,7 @@ defmodule ErgoTest do
       minus,
       digits,
       ],
-      map: &Enum.product/1
+      ast: &Enum.product/1
     )
 
     assert %Context{status: :ok, ast: 1234} = Ergo.parse(integer, "1234")
@@ -49,7 +49,7 @@ defmodule ErgoTest do
       |> Enum.sum
     end
 
-    mantissa = many(digit, map: m_transform)
+    mantissa = many(digit, ast: m_transform)
 
     assert %Context{status: :ok, ast: 0.5} = Ergo.parse(mantissa, "5")
     assert %Context{status: :ok, ast: 0.42000000000000004} = Ergo.parse(mantissa, "42")
@@ -71,9 +71,9 @@ defmodule ErgoTest do
         sequence([
           ignore(char(?.)),
           mantissa
-        ], map: &List.first/1)
+        ], ast: &List.first/1)
       )
-    ], map: combine)
+    ], ast: combine)
 
     assert %Context{status: :ok, ast: 42} = Ergo.parse(number, "42")
     assert %Context{status: :ok, ast: 0.45} = Ergo.parse(number, "0.45")
@@ -92,13 +92,13 @@ defmodule ErgoTest do
     sequence([
       number(), many(choice([
         choice([
-          sequence([ignore(add), number()], map: fn [n] -> {:+, n} end),
-          sequence([ignore(subtract), number()], map: fn [n] -> {:-, n} end),
-          sequence([ignore(multiple), number()], map: fn [n] -> {:*, n} end),
-          sequence([ignore(divide), number()], map: fn [n] -> {:/, n} end)
+          sequence([ignore(add), number()], ast: fn [n] -> {:+, n} end),
+          sequence([ignore(subtract), number()], ast: fn [n] -> {:-, n} end),
+          sequence([ignore(multiple), number()], ast: fn [n] -> {:*, n} end),
+          sequence([ignore(divide), number()], ast: fn [n] -> {:/, n} end)
         ])
       ]))
-    ], map: &List.flatten/1)
+    ], ast: &List.flatten/1)
   end
 
   test "parses simple mathematical expression" do

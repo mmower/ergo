@@ -30,6 +30,28 @@ defmodule Ergo.Combinators do
   end
 
   @doc ~S"""
+  A ctx: function should be passed & return the whole context. It takes
+  precendence over an ast: function that receives and returns a modified
+  AST. Otherwise the identity function is returned.
+
+  ## Examples
+      iex> alias Ergo.Context
+      iex> import Ergo.Combinators
+      iex> f = mapping_fn(ctx: fn _ -> :kazam end)
+      iex> assert :kazam = f.(%Context{})
+  """
+  def mapping_fn(opts) do
+    ctx_fn = Keyword.get(opts, :ctx)
+    ast_fn = Keyword.get(opts, :ast)
+
+    cond do
+      is_function(ctx_fn) -> ctx_fn
+      is_function(ast_fn) -> fn %Context{ast: ast} = ctx -> %{ctx | ast: ast_fn.(ast)} end
+      true -> &Function.identity/1
+    end
+  end
+
+  @doc ~S"""
   The `choice/1` parser takes a list of parsers. It tries each in order attempting to match one. Once a match has been
   made choice returns the result of the matching parser.
 
@@ -49,8 +71,9 @@ defmodule Ergo.Combinators do
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
     label = Keyword.get(opts, :label, "#")
-    map_fn = Keyword.get(opts, :map, &Function.identity/1)
     debug = Keyword.get(opts, :debug, false)
+    map_fn = mapping_fn(opts)
+    err_fn = Keyword.get(opts, :error, &Function.identity/1)
 
     validate_parsers(parsers)
 
@@ -60,7 +83,9 @@ defmodule Ergo.Combinators do
         if debug, do: Logger.info("Trying choice<#{label}> on [#{ellipsize(input, 20)}]")
 
         with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx, label) do
-          %{new_ctx | ast: map_fn.(new_ctx.ast)}
+          map_fn.(new_ctx)
+        else
+          err_ctx -> err_fn.(err_ctx)
         end
       end,
       combinator: true,
@@ -106,7 +131,7 @@ defmodule Ergo.Combinators do
 
       iex> alias Ergo.Context
       iex> import Ergo.{Terminals, Combinators}
-      iex> parser = sequence([literal("Hello"), ws(), literal("World")], map: fn ast -> Enum.join(ast, " ") end)
+      iex> parser = sequence([literal("Hello"), ws(), literal("World")], ast: fn ast -> Enum.join(ast, " ") end)
       iex> context = Ergo.parse(parser, "Hello World")
       iex> assert %Context{status: :ok, ast: "Hello 32 World", index: 11, line: 1, col: 12} = context
 
@@ -114,7 +139,7 @@ defmodule Ergo.Combinators do
       # iex> Logger.disable(self())
       # iex> alias Ergo.Context
       # iex> import Ergo.{Terminals, Combinators}
-      # iex> parser = sequence([literal("Hello"), ws(), literal("World")], label: "HelloWorld", map: fn ast -> Enum.join(ast, " ") end)
+      # iex> parser = sequence([literal("Hello"), ws(), literal("World")], label: "HelloWorld", ast: fn ast -> Enum.join(ast, " ") end)
       # iex> context = Ergo.parse(parser, "Hello World", debug: true)
       # iex> assert %Context{status: :ok, debug: true, ast: "Hello 32 World", index: 11, line: 1, col: 12} = context
 
@@ -127,9 +152,9 @@ defmodule Ergo.Combinators do
 
   def sequence(parsers, opts) when is_list(parsers) do
     label = Keyword.get(opts, :label, "#")
-    map_fn = Keyword.get(opts, :map, nil)
     debug = Keyword.get(opts, :debug, false)
-    err = Keyword.get(opts, :err, nil)
+    map_fn = mapping_fn(opts)
+    err_fn = Keyword.get(opts, :err, &Function.identity/1)
 
     validate_parsers(parsers)
 
@@ -144,15 +169,14 @@ defmodule Ergo.Combinators do
           new_ctx
           |> Context.ast_without_ignored()
           |> Context.ast_in_parsed_order()
-          |> Context.ast_transform(map_fn)
+          |> map_fn.()
         else
           err_ctx ->
             if debug, do: Logger.info("Sequence failed to match")
-            err_ctx
+            err_fn.(err_ctx)
         end
       end,
       debug: debug,
-      err: err,
       combinator: true,
       label: label
     )
@@ -223,7 +247,7 @@ defmodule Ergo.Combinators do
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Combinators, Terminals}
-      iex> parser = many(wc(), map: &Enum.count/1)
+      iex> parser = many(wc(), ast: &Enum.count/1)
       iex> context = Ergo.parse(parser, "Hello World")
       iex> assert %Context{status: :ok, ast: 5, input: " World", index: 5, col: 6} = context
   """
@@ -234,8 +258,10 @@ defmodule Ergo.Combinators do
 
     min = Keyword.get(opts, :min, 0)
     max = Keyword.get(opts, :max, :infinity)
-    map_fn = Keyword.get(opts, :map, nil)
     debug = Keyword.get(opts, :debug, false)
+
+    map_fn = mapping_fn(opts)
+    err_fn = Keyword.get(opts, :err, &Function.identity/1)
 
     Parser.new(
       :many,
@@ -246,7 +272,9 @@ defmodule Ergo.Combinators do
           new_ctx
           |> Context.ast_without_ignored()
           |> Context.ast_in_parsed_order()
-          |> Context.ast_transform(map_fn)
+          |> map_fn.()
+        else
+          err_ctx -> err_fn.(err_ctx)
         end
       end,
       combinator: true,
@@ -294,7 +322,7 @@ defmodule Ergo.Combinators do
   """
   def optional(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "#")
-    map_fn = Keyword.get(opts, :map, nil)
+    map_fn = mapping_fn(opts)
 
     Parser.new(
       :optional,
@@ -304,15 +332,7 @@ defmodule Ergo.Combinators do
         case Parser.invoke(parser, ctx) do
           %Context{status: :ok, ast: ast} = new_ctx ->
             if debug, do: Logger.info("<- Matched: [#{inspect(ast)}]")
-
-            if map_fn do
-              mapped_ast = map_fn.(ast)
-              if debug, do: Logger.info("<- Return [#{inspect(mapped_ast)}]")
-              %{new_ctx | ast: mapped_ast}
-            else
-              new_ctx
-            end
-
+            map_fn.(new_ctx)
           _ ->
             %{ctx | status: :ok}
         end
@@ -531,7 +551,7 @@ defmodule Ergo.Combinators do
       iex> assert %Context{status: :ok, ast: ?4} = Ergo.parse(parser, "4")
       iex> assert %Context{status: {:error, :unsatisfied}} = Ergo.parse(parser, "!")
       iex> parser = satisfy(number(), fn n -> Integer.mod(n, 2) == 0 end, label: "even number")
-      iex> assert %Context{status: :ok, ast: 42} = Ergo.parse(parser, "42")
+      iex> assert %Context{status: :ok, ast: 42} = Ergo.diagnose(parser, "42")
       iex> assert %Context{status: {:error, :unsatisfied}} = Ergo.parse(parser, "27")
   """
   def satisfy(%Parser{} = parser, pred_fn, opts \\ []) when is_function(pred_fn) do

@@ -62,10 +62,10 @@ Ergo.parse(digits, "42")
 In this case we are applying the `transform` parser to the `many` parser. Transform only operates on the AST of the parser it is given by applying a function to it. In this case we could also have used:
 
 ```elixir
-digits = many(digit(), map: c_transform)
+digits = many(digit(), ast: c_transform)
 ```
 
-As many of the combinator parsers support an optional `map:` argument as a shortcut.
+As many of the combinator parsers support an optional `ctx:` or `ast:` argument as a shortcut.
 
 At this point we can parse positive integers of any length:
 
@@ -141,7 +141,7 @@ integer = sequence([
   minus,
   digits,
   ],
-  map: &Enum.product/1
+  ast: &Enum.product/1
 )
 
 Ergo.parse(integer, "1234")
@@ -170,7 +170,7 @@ m_transform = fn ast ->
   |> Enum.sum
 end
 
-mantissa = many(digit, map: m_transform)
+mantissa = many(digit, ast: m_transform)
 
 Ergo.parse(mantissa, "5")
 %Context{status: :ok, ast: 0.5}
@@ -181,7 +181,7 @@ Ergo.parse(mantissa, "42")
 
 There may be a precision issue with this code but you can see the principle it is operating by.
 
-Now to join the two components together, assuming there is a decimal point (suggesting we'll need `optional` again). Also we'll again make use of the `map:` feature of the `sequence` combinator to process AST's to give us the right value.
+Now to join the two components together, assuming there is a decimal point (suggesting we'll need `optional` again). Also we'll again make use of the `ast:` feature of the `sequence` combinator to process AST's to give us the right value.
 
 ```elixir
 number = sequence([
@@ -190,9 +190,9 @@ number = sequence([
     sequence([
       ignore(char(?.)),
       mantissa
-    ], map: &List.first/1)
+    ], ast: &List.first/1)
   )
-], map: &Enum.sum/1)
+], ast: &Enum.sum/1)
 
 Ergo.parse(number, "42")
 %Context{status: :ok, ast: 42}
@@ -231,9 +231,9 @@ number = sequence([
     sequence([
       ignore(char(?.)),
       mantissa
-    ], map: &List.first/1)
+    ], ast: &List.first/1)
   )
-], map: combine)
+], ast: combine)
 
 Ergo.parse(number, "-4.2")
 %Context{status: :ok, ast: -4.2}
@@ -241,6 +241,6 @@ Ergo.parse(number, "-4.2")
 
 ## Conclusion
 
-Through a series of steps we have built a parser that can handle any kind of integer or decimal number we throw at it. We've seen the using of terminal parsers like `char` as well as combinator parsers like `optional`, `ignore`, `many`, and `sequence` and meta parsers like `transform` (and that often transform can be specified as a `map:` argument to a combinator parser).
+Through a series of steps we have built a parser that can handle any kind of integer or decimal number we throw at it. We've seen the using of terminal parsers like `char` as well as combinator parsers like `optional`, `ignore`, `many`, and `sequence` and meta parsers like `transform` (and that often transform can be specified as a `ast:` argument to a combinator parser).
 
 Hopefully this guide will be helpful in thinking about how to build your own parsers.
