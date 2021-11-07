@@ -207,7 +207,8 @@ Example:
 
 Optional arguments:
 
-    map: fn ast -> ast
+    ast: fn ast -> ast
+    ctx: fn ctx -> ctx
 
     Provide a function that transforms the sequence ast into another form. For example to transform the elements of the list ast into a record type.
 
@@ -233,7 +234,7 @@ Example:
     p.(Context.new("Hello World")) -> %{status: :ok, ast: "Hello", input: " World"}
     p.(Context.new("World Hello")) -> %{status: :ok, ast: "World", input: " Hello"}
 
-    boolean = choice([literal("true"), literal("false")], map: fn ast -> ast == "true" end)
+    boolean = choice([literal("true"), literal("false")], ast: fn ast -> ast == "true" end)
     boolean.(Context.new("true")) -> %{status: ok, ast: true, input: ""}
     boolean.(Context.new("false)) -> %{status: ok, ast: false, input: ""}
     boolean.(Context.new("Hello)) -> %{status: {:error, ...}, input: "Hello"}
@@ -258,7 +259,7 @@ Example:
     p = many(char(?a..?z), max: 2)
     p.(Context.new("Hello World)) -> %{status: :ok, ast: ['H', 'e'], input: "llo World"}
 
-    p = many(char(?a..?z), map: fn ast -> Enum.count(ast) end)
+    p = many(char(?a..?z), ast: fn ast -> Enum.count(ast) end)
     p.(Context.new("Hello")) -> %{status: :ok, ast: 5, input: ""}
 ```
 
