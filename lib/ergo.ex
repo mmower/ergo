@@ -28,11 +28,11 @@ defmodule Ergo do
       iex> parser = Terminals.literal("Hello")
       iex> assert %Ergo.Context{status: :ok, ast: "Hello", input: " World", index: 5, line: 1, col: 6} = Ergo.parse(parser, "Hello World")
   """
-  def parse(%Parser{} = parser, input) when is_binary(input) do
-    Parser.invoke(parser, Context.new(&Parser.call/2, input))
+  def parse(%Parser{} = parser, input, data \\ %{}) when is_binary(input) do
+    Parser.invoke(parser, Context.new(&Parser.call/2, input, data: data))
   end
 
-  def diagnose(%Parser{} = parser, input) when is_binary(input) do
-    Parser.invoke(parser, Context.new(&Parser.diagnose/2, input))
+  def diagnose(%Parser{} = parser, input, data \\ %{}) when is_binary(input) do
+    Parser.invoke(parser, Context.new(&Parser.diagnose/2, input, data: data))
   end
 end

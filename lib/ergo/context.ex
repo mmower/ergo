@@ -85,7 +85,8 @@ defmodule Ergo.Context do
   def new(invoke_fn, input \\ "", options \\ []) when is_function(invoke_fn) and is_binary(input) do
     debug = Keyword.get(options, :debug, false)
     ast = Keyword.get(options, :ast, nil)
-    %Context{invoke_fn: invoke_fn, input: input, ast: ast, debug: debug}
+    data = Keyword.get(options, :data, %{})
+    %Context{invoke_fn: invoke_fn, input: input, ast: ast, data: data, debug: debug}
   end
 
   @doc ~S"""
