@@ -75,9 +75,9 @@ defmodule Ergo.Parser do
 
   def invoke(%Parser{} = parser, %Context{invoke_fn: invoke_fn, called_from: called_from, parser: caller} = ctx) do
     if ctx.caller_logging do
-      invoke_fn.(parser, %{ctx | parser: parser, called_from: [caller | called_from]})
+      invoke_fn.(%{ctx | parser: parser, called_from: [caller | called_from]}, parser)
     else
-      invoke_fn.(parser, %{ctx | parser: parser})
+      invoke_fn.(%{ctx | parser: parser}, parser)
     end
   end
 
@@ -103,12 +103,24 @@ defmodule Ergo.Parser do
   `call/2` invokes the specified parser by calling its parsing function with the specified context having
   first reset the context status.
   """
-  def call(%Parser{parser_fn: parser_fn} = parser, %Context{} = ctx) do
+  def call(%Context{} = ctx, %Parser{parser_fn: parser_fn} = parser) do
     ctx
     |> Context.reset_status()
     |> track_parser(parser)
     |> parser_fn.()
     |> rewrite_error(parser)
+  end
+
+  def trace_in(%Context{depth: depth, line: line, col: col} = ctx, label, debug) do
+    Context.trace(ctx, debug, "#{depth}> #{label} @ #{line}:#{col} on: #{Context.clip(ctx)}")
+  end
+
+  def trace_out(%Context{depth: depth, status: status, ast: ast, message: message} = ctx, label, debug) do
+    Context.trace(ctx, debug, "#{depth}> #{label} status: #{inspect(status)} message: #{message} ast: #{ast}")
+  end
+
+  def process(%Context{process: process} = ctx, parser) do
+    %{ctx | process: [process_entry(parser, ctx) | process]}
   end
 
   @doc ~S"""
@@ -124,16 +136,16 @@ defmodule Ergo.Parser do
       iex> parser = many(wc())
       iex> assert %{status: :ok} = Parser.invoke(parser, context)
   """
-  def diagnose(%Parser{} = parser, %Context{depth: depth, process: process} = ctx) do
+  def diagnose(%Context{} = ctx, %Parser{label: label} = parser) do
     debug = should_debug?(parser, ctx)
 
-    if debug, do: debug_entry(parser, ctx)
-
-    updated_ctx = Parser.call(parser, %{ctx | depth: depth + 1})
-
-    if debug, do: debug_exit(parser, updated_ctx)
-
-    %{updated_ctx | depth: depth, process: [process_entry(parser, ctx) | process]}
+    ctx
+    |> Context.inc_depth()
+    |> trace_in(label, debug)
+    |> Parser.call(parser)
+    |> trace_out(label, debug)
+    |> Context.dec_depth()
+    |> process(parser)
   end
 
   defp process_entry(%Parser{label: label, ref: ref}, %Context{status: status, line: line, col: col, input: input}) do
@@ -146,16 +158,6 @@ defmodule Ergo.Parser do
 
   defp should_debug?(%Parser{combinator: false}, %Context{called_from: [caller | _]}) do
     !is_nil(caller) && caller.debug
-  end
-
-  defp debug_entry(%Parser{label: label}, %Context{depth: depth, line: line, col: col, input: input}) do
-    padding = String.duplicate("  ", depth)
-    Logger.debug("#{padding} -> #{label} at #{line}:#{col} on: \"#{Utils.ellipsize(input, 20)}\"")
-  end
-
-  defp debug_exit(%Parser{label: label}, %Context{status: status, ast: ast, message: message, depth: depth}) do
-    padding = String.duplicate("  ", depth)
-    Logger.debug("#{padding} <- #{label} status: #{inspect(status)} message: #{message} ast: #{inspect(ast)}")
   end
 
   @doc ~S"""

@@ -27,4 +27,9 @@ defmodule Ergo.CombinatorsTest do
       binding()
     ]) end)
   end
+
+  test "traces sequence" do
+    parser = Combinators.sequence([Terminals.digit(), Terminals.digit()], label: "2digits", debug: true)
+    assert %{trace: ["Try 2digits on: \"12\"", "2digits matched"]} = Ergo.parse(parser, "12")
+  end
 end

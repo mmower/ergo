@@ -1,7 +1,6 @@
 defmodule Ergo.Numeric do
   alias Ergo.{Context, Parser}
-  import Ergo.{Terminals, Combinators, Utils}
-  require Logger
+  import Ergo.{Terminals, Combinators}
 
   @moduledoc """
   The Parsers module exists to house utility parsers that while they are terminals in the sense that they are not parameterised, they internally make use of parsers from the Combinators module.
@@ -31,10 +30,9 @@ defmodule Ergo.Numeric do
     parser = digits()
 
     Parser.terminal(
-      "<#{label}>",
-      fn %Context{input: input} = ctx ->
-        if debug, do: Logger.info("Trying UInt<#{label}> on #{ellipsize(input, 20)}")
-
+      label,
+      fn %Context{} = ctx ->
+        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           uint_value = ast |> Enum.join("") |> String.to_integer()
           %{new_ctx | ast: uint_value}
@@ -58,9 +56,9 @@ defmodule Ergo.Numeric do
     parser = sequence([digits(), ignore(char(?.)), digits()], label: "ddd.dd")
 
     Parser.terminal(
-      "<#{label}>",
-      fn %Context{input: input} = ctx ->
-        if debug, do: Logger.info("Trying <#{label}> on [#{ellipsize(input, 20)}]")
+      label,
+      fn %Context{} = ctx ->
+        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           [i_part | [d_part]] = ast
@@ -87,7 +85,7 @@ defmodule Ergo.Numeric do
     label = Keyword.get(opts, :label, "digits")
 
     many(digit(),
-      label: "<#{label}>",
+      label: label,
       min: 1,
       ast: fn digits -> Enum.map(digits, fn digit -> digit - ?0 end) end
     )
@@ -128,16 +126,16 @@ defmodule Ergo.Numeric do
 
     sequence(
       [
-        optional(char(?-), ast: fn _ -> -1 end, label: "<?>"),
+        optional(char(?-), ast: fn _ -> -1 end, label: "?-"),
         choice(
           [
             decimal(),
             uint()
           ],
-          label: "<int|dec>"
+          label: "int|dec"
         )
       ],
-      label: "<#{label}>",
+      label: label,
       ast: &Enum.product/1
     )
   end

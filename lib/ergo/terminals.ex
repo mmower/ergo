@@ -408,8 +408,8 @@ defmodule Ergo.Terminals do
 
     Parser.terminal(
       "<#{label}>",
-      fn %Context{input: input} = ctx ->
-        if debug, do: Logger.info("Trying Literal<#{label}> on [#{ellipsize(input, 20)}]")
+      fn %Context{} = ctx ->
+        ctx = Context.trace(ctx, debug, "Try #{label} on #{Context.clip(ctx)}")
 
         with %Context{status: :ok} = new_ctx <-
                literal_reduce(String.to_charlist(s), %{ctx | ast: []}) do

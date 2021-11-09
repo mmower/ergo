@@ -1,6 +1,8 @@
 defmodule Ergo.Context do
   alias __MODULE__
 
+  alias Ergo.Utils
+
   @moduledoc """
 
   `Ergo.Context` defines the `Context` struct that is used to maintain parser state as the various
@@ -67,6 +69,7 @@ defmodule Ergo.Context do
             caller_logging: true,
             tracks: MapSet.new(),
             depth: 0,
+            trace: [],
             process: []
 
   @doc """
@@ -251,4 +254,26 @@ defmodule Ergo.Context do
   def transform(%Context{} = ctx, tr_fn) when is_function(tr_fn) do
     tr_fn.(ctx)
   end
+
+
+  def trace(%Context{trace: trace} = ctx, true, message) do
+    %{ctx | trace: trace ++ [message]}
+  end
+
+  def trace(%Context{} = ctx, false, _message) do
+    ctx
+  end
+
+  def clip(%Context{input: input}, length \\ 20) do
+    "\"#{String.trim(Utils.ellipsize(input, length))}\""
+  end
+
+  def inc_depth(%Context{depth: depth} = ctx) do
+    %{ctx | depth: depth+1}
+  end
+
+  def dec_depth(%Context{depth: depth} = ctx) do
+    %{ctx | depth: depth-1}
+  end
+
 end
