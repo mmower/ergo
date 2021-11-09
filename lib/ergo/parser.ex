@@ -31,7 +31,7 @@ defmodule Ergo.Parser do
   them in a `Parser` record that can hold arbitrary metadata. The primary use for the metadata is
   the storage of debugging information.
   """
-  defstruct label: "<unknown>",
+  defstruct label: "*unknown*",
             combinator: false,
             parser_fn: nil,
             ref: nil,

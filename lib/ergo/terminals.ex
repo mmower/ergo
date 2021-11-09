@@ -28,7 +28,7 @@ defmodule Ergo.Terminals do
   """
   def eoi() do
     Parser.terminal(
-      "<eoi>",
+      "eoi",
       fn
         %Context{input: ""} = ctx ->
           %{ctx | status: :ok, ast: nil}
@@ -123,7 +123,7 @@ defmodule Ergo.Terminals do
     label = Keyword.get(opts, :label, "?#{char_to_string(c)}")
 
     Parser.terminal(
-      "<#{label}>",
+      label,
       fn ctx ->
         case Context.next_char(ctx) do
           %Context{status: :ok, ast: ^c} = new_ctx ->
@@ -149,7 +149,7 @@ defmodule Ergo.Terminals do
     label = Keyword.get(opts, :label, "?-#{char_to_string(c)}")
 
     Parser.terminal(
-      "<#{label}>",
+      label,
       fn ctx ->
         case Context.next_char(ctx) do
           %Context{status: :ok, ast: ^c} ->
@@ -173,7 +173,7 @@ defmodule Ergo.Terminals do
     label = Keyword.get(opts, :label, "?(#{char_to_string(min)}..#{char_to_string(max)})")
 
     Parser.terminal(
-      "<#{label}>",
+      label,
       fn ctx ->
         case Context.next_char(ctx) do
           %Context{status: :ok, ast: c} = new_ctx when c in min..max ->
@@ -197,7 +197,7 @@ defmodule Ergo.Terminals do
     label = Keyword.get(opts, :label, "?[#{inspect(l)}]")
 
     Parser.terminal(
-      "<#{label}>",
+      label,
       fn ctx ->
         with %Context{status: :ok} = peek_ctx <- Context.peek(ctx) do
           err_ctx = %{
@@ -239,9 +239,9 @@ defmodule Ergo.Terminals do
   end
 
   def not_char(l, opts) when is_list(l) do
-    label = Keyword.get(opts, :label, "<?-[#{inspect(l)}]>")
+    label = Keyword.get(opts, :label, "?-[#{inspect(l)}]")
     Parser.terminal(
-      "<#{label}>",
+      label,
       fn ctx ->
         with %Context{status: :ok, ast: ast} <- Context.peek(ctx) do
           case Enum.member?(l, ast) do
@@ -399,15 +399,15 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = literal("Hellx")
-      iex> assert %Context{status: {:error, :unexpected_char}, message: "Expected: x Actual: o [in literal[\"Hellx\"]]", input: "o World", ast: [?l, ?l, ?e, ?H], index: 4, line: 1, col: 5} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: {:error, :unexpected_char}, message: "Expected: x Actual: o [in literal<Hellx>]", input: "o World", ast: [?l, ?l, ?e, ?H], index: 4, line: 1, col: 5} = Ergo.parse(parser, "Hello World")
   """
   def literal(s, opts \\ []) when is_binary(s) do
     map_fn = Keyword.get(opts, :map, nil)
-    label = Keyword.get(opts, :label, "literal[\"#{s}\"]")
+    label = Keyword.get(opts, :label, "literal<#{s}>")
     debug = Keyword.get(opts, :debug, false)
 
     Parser.terminal(
-      "<#{label}>",
+      label,
       fn %Context{} = ctx ->
         ctx = Context.trace(ctx, debug, "Try #{label} on #{Context.clip(ctx)}")
 
@@ -452,9 +452,9 @@ defmodule Ergo.Terminals do
         iex> assert %Context{status: :ok, ast: "{function b(y) {return x + y;}; return b;}", input: "foo"} = Ergo.parse(parser, "{function b(y) {return x + y;}; return b;}foo")
   """
   def delimited_text(open_char, close_char, opts \\ []) do
-    label = Keyword.get(opts, :label, "delimited_text[#{char_to_string(open_char)}, #{char_to_string(close_char)}]")
+    label = Keyword.get(opts, :label, "delimited_text<#{char_to_string(open_char)}, #{char_to_string(close_char)}>")
     Parser.terminal(
-      "<#{label}>",
+      label,
       fn ctx -> nested_next_char(ctx, {0, []}, open_char, close_char) end
     )
   end

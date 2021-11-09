@@ -59,9 +59,9 @@ defmodule Ergo.Meta do
 
     cond do
       before_fn && !after_fn ->
-        label = Keyword.get(opts, :label, "before[#{parser.label}]")
+        label = Keyword.get(opts, :label, "before<#{parser.label}>")
         Parser.combinator(
-          "<#{label}>",
+          label,
           fn %Context{} = ctx ->
             before_fn.(ctx)
             Parser.invoke(parser, ctx)
@@ -69,9 +69,9 @@ defmodule Ergo.Meta do
         )
 
       after_fn && !before_fn ->
-        label = Keyword.get(opts, :label, "after[#{parser.label}]")
+        label = Keyword.get(opts, :label, "after<#{parser.label}>")
         Parser.combinator(
-          "<#{label}>",
+          label,
           fn %Context{} = ctx ->
             new_ctx = Parser.invoke(parser, ctx)
             after_fn.(ctx, new_ctx)
@@ -80,9 +80,9 @@ defmodule Ergo.Meta do
         )
 
       before_fn && after_fn ->
-        Keyword.get(opts, :label, "around[#{parser.label}]")
+        Keyword.get(opts, :label, "around<#{parser.label}>")
         Parser.combinator(
-          "<#{label}>",
+          label,
           fn %Context{} = ctx ->
             before_fn.(ctx)
             new_ctx = Parser.invoke(parser, ctx)
@@ -112,10 +112,10 @@ defmodule Ergo.Meta do
       iex> assert_received :failed
   """
   def failed(%Parser{} = parser, fail_fn, opts \\ []) when is_function(fail_fn) do
-    label = Keyword.get(opts, :label, "failed[#{parser.label}]")
+    label = Keyword.get(opts, :label, "failed<#{parser.label}>")
 
     Parser.combinator(
-      "<#{label}>",
+      label,
       fn %Context{} = ctx ->
         with %Context{status: {:error, _}} = new_ctx <- Parser.invoke(parser, ctx) do
           fail_fn.(new_ctx)
@@ -139,13 +139,12 @@ defmodule Ergo.Meta do
 
   def suppress_caller_logging(%Parser{} = parser) do
     Parser.combinator(
-      "<suppress_logging[#{parser.label}]>",
+      "suppress_logging<#{parser.label}>",
       fn %Context{caller_logging: caller_logging} = ctx ->
         ctx_2 = Parser.invoke(parser, %{ctx | caller_logging: false})
         %{ctx_2 | caller_logging: caller_logging}
       end
     )
-
   end
 
 end
