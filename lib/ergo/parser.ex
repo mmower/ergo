@@ -116,7 +116,7 @@ defmodule Ergo.Parser do
   end
 
   def trace_out(%Context{depth: depth, status: status, ast: ast, message: message} = ctx, label, debug) do
-    Context.trace(ctx, debug, "#{depth}> #{label} status: #{inspect(status)} message: #{message} ast: #{ast}")
+    Context.trace(ctx, debug, "#{depth}> #{label} status: #{inspect(status)} message: #{message} ast: #{inspect(ast)}")
   end
 
   def process(%Context{process: process} = ctx, parser) do
