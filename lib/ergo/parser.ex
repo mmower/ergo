@@ -31,21 +31,38 @@ defmodule Ergo.Parser do
   them in a `Parser` record that can hold arbitrary metadata. The primary use for the metadata is
   the storage of debugging information.
   """
-  defstruct type: nil,
+  defstruct label: "<unknown>",
             combinator: false,
             parser_fn: nil,
             ref: nil,
             debug: false,
-            err: nil,
-            label: "#"
+            err: nil
 
   @doc ~S"""
-  `new/2` creates a new `Parser` from the given parsing function and with the specified metadata.
+  Create a new combinator parser with the given label, parsing function, and
+  optional metadata.
   """
-  def new(type, parser_fn, meta \\ []) when is_atom(type) and is_function(parser_fn) do
-    %Parser{type: type, parser_fn: parser_fn, ref: ParserRefs.next_ref()}
+  def combinator(label, parser_fn, meta \\ []) when is_binary(label) and is_function(parser_fn) do
+    %Parser{combinator: true, label: label, parser_fn: parser_fn, ref: ParserRefs.next_ref()}
     |> Map.merge(Enum.into(meta, %{}))
   end
+
+  @doc ~S"""
+  Create a new terminal parser with the given label, parsing function, and
+  optional metadata.
+  """
+  def terminal(label, parser_fn, meta \\ []) when is_binary(label) and is_function(parser_fn) do
+    %Parser{combinator: false, label: label, parser_fn: parser_fn, ref: ParserRefs.next_ref()}
+    |> Map.merge(Enum.into(meta, %{}))
+  end
+
+  # @doc ~S"""
+  # `new/2` creates a new `Parser` from the given parsing function and with the specified metadata.
+  # """
+  # def new(label, parser_fn, meta \\ []) when is_binary(label) and is_function(parser_fn) do
+  #   %Parser{label: label, parser_fn: parser_fn, ref: ParserRefs.next_ref()}
+  #   |> Map.merge(Enum.into(meta, %{}))
+  # end
 
   @doc ~S"""
   `invoke/2` is the main entry point for the parsing process. It looks up the parser control function within
@@ -119,8 +136,8 @@ defmodule Ergo.Parser do
     %{updated_ctx | depth: depth, process: [process_entry(parser, ctx) | process]}
   end
 
-  defp process_entry(%Parser{type: type, label: label, ref: ref}, %Context{status: status, line: line, col: col, input: input}) do
-    {{line, col}, Utils.ellipsize(input, 20), ref, type, label, status}
+  defp process_entry(%Parser{label: label, ref: ref}, %Context{status: status, line: line, col: col, input: input}) do
+    {{line, col}, Utils.ellipsize(input, 20), ref, label, status}
   end
 
   defp should_debug?(%Parser{combinator: true}, %Context{}) do
@@ -131,14 +148,14 @@ defmodule Ergo.Parser do
     !is_nil(caller) && caller.debug
   end
 
-  defp debug_entry(%Parser{type: type, label: label}, %Context{depth: depth, line: line, col: col, input: input}) do
+  defp debug_entry(%Parser{label: label}, %Context{depth: depth, line: line, col: col, input: input}) do
     padding = String.duplicate("  ", depth)
-    Logger.debug("#{padding} -> #{type}(#{label}) at #{line}:#{col} on: \"#{Utils.ellipsize(input, 20)}\"")
+    Logger.debug("#{padding} -> #{label} at #{line}:#{col} on: \"#{Utils.ellipsize(input, 20)}\"")
   end
 
-  defp debug_exit(%Parser{type: type, label: label}, %Context{status: status, ast: ast, message: message, depth: depth}) do
+  defp debug_exit(%Parser{label: label}, %Context{status: status, ast: ast, message: message, depth: depth}) do
     padding = String.duplicate("  ", depth)
-    Logger.debug("#{padding} <- #{type}(#{label}) status: #{inspect(status)} message: #{message} ast: #{inspect(ast)}")
+    Logger.debug("#{padding} <- #{label} status: #{inspect(status)} message: #{message} ast: #{inspect(ast)}")
   end
 
   @doc ~S"""

@@ -42,10 +42,6 @@ defmodule Ergo.Context do
 
   Represents the current data structure being built from the input.
 
-  * `debug`
-
-  When set to 'true' parsers will attempt to log their behaviours as they run using the Elixir Logger at the :info level.
-
   * `tracks`
 
   Parsers for which `track: true` is specified (by default this is most of the
@@ -66,7 +62,6 @@ defmodule Ergo.Context do
             col: 1,
             data: %{},
             ast: nil,
-            debug: false,
             parser: nil,
             called_from: [],
             caller_logging: true,
@@ -80,13 +75,12 @@ defmodule Ergo.Context do
   ## Examples:
 
     iex> Context.new(&Ergo.Parser.call/2, "Hello World")
-    %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, debug: false, tracks: %MapSet{}, invoke_fn: &Ergo.Parser.call/2}
+    %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %MapSet{}, invoke_fn: &Ergo.Parser.call/2}
   """
   def new(invoke_fn, input \\ "", options \\ []) when is_function(invoke_fn) and is_binary(input) do
-    debug = Keyword.get(options, :debug, false)
     ast = Keyword.get(options, :ast, nil)
     data = Keyword.get(options, :data, %{})
-    %Context{invoke_fn: invoke_fn, input: input, ast: ast, data: data, debug: debug}
+    %Context{invoke_fn: invoke_fn, input: input, ast: ast, data: data}
   end
 
   @doc ~S"""

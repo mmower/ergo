@@ -14,6 +14,10 @@ defmodule Ergo.CombinatorsTest do
   now we'll validate lists of parsers.
   """
   test "Parsers should be valid" do
+
+    assert_raise(RuntimeError, fn -> Combinators.sequence([]) end)
+    assert_raise(RuntimeError, fn -> Combinators.sequence([1]) end)
+
     assert_raise(RuntimeError, fn -> Combinators.sequence([
       binding()
     ]) end)
