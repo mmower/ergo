@@ -111,12 +111,12 @@ defmodule Ergo.Parser do
     |> rewrite_error(parser)
   end
 
-  def trace_in(%Context{depth: depth, line: line, col: col} = ctx, label, debug) do
-    Context.trace(ctx, debug, "#{depth}> #{label} @ #{line}:#{col} on: #{Context.clip(ctx)}")
+  def trace_in(%Context{line: line, col: col} = ctx, label, debug) do
+    Context.trace(ctx, debug, "#{label} @ #{line}:#{col} on: #{Context.clip(ctx)}")
   end
 
-  def trace_out(%Context{depth: depth, status: status, ast: ast, message: message} = ctx, label, debug) do
-    Context.trace(ctx, debug, "#{depth}> #{label} status: #{inspect(status)} message: #{message} ast: #{inspect(ast)}")
+  def trace_out(%Context{status: status, ast: ast, message: message} = ctx, label, debug) do
+    Context.trace(ctx, debug, "#{label} status: #{inspect(status)} message: #{message} ast: #{inspect(ast)}")
   end
 
   def process(%Context{process: process} = ctx, parser) do

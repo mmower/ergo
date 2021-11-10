@@ -69,6 +69,7 @@ defmodule Ergo.Context do
             caller_logging: true,
             tracks: MapSet.new(),
             depth: 0,
+            depth_pad: 2,
             trace: [],
             process: []
 
@@ -83,7 +84,8 @@ defmodule Ergo.Context do
   def new(invoke_fn, input \\ "", options \\ []) when is_function(invoke_fn) and is_binary(input) do
     ast = Keyword.get(options, :ast, nil)
     data = Keyword.get(options, :data, %{})
-    %Context{invoke_fn: invoke_fn, input: input, ast: ast, data: data}
+    padding = Keyword.get(options, :padding, 2)
+    %Context{invoke_fn: invoke_fn, input: input, ast: ast, data: data, depth_pad: padding}
   end
 
   @doc ~S"""
@@ -256,8 +258,9 @@ defmodule Ergo.Context do
   end
 
 
-  def trace(%Context{trace: trace} = ctx, true, message) do
-    %{ctx | trace: trace ++ [message]}
+  def trace(%Context{depth: depth, depth_pad: padd, trace: trace} = ctx, true, message) do
+    depth_field = String.pad_leading(to_string(depth), padd, "0")
+    %{ctx | trace: trace ++ ["[#{depth_field}] #{message}"]}
   end
 
   def trace(%Context{} = ctx, false, _message) do
