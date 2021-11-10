@@ -99,7 +99,7 @@ defmodule Ergo.Context do
       iex> assert %Context{status: :ok, ast: nil} = context
   """
   def reset_status(%Context{} = ctx) do
-    %{ctx | status: :ok, ast: nil}
+    %{ctx | status: :ok, ast: nil, message: nil}
   end
 
   @doc ~S"""
@@ -265,6 +265,14 @@ defmodule Ergo.Context do
 
   def trace(%Context{} = ctx, false, _message) do
     ctx
+  end
+
+  def trace_match(%Context{status: :ok, ast: ast} = ctx, debug, type, label) do
+    trace(ctx, debug, "#{type} + #{label} #{inspect(ast)}")
+  end
+
+  def trace_match(%Context{status: {:error, reason}} = ctx, debug, type, label) do
+    trace(ctx, debug, "#{type} - #{label} #{inspect(reason)}")
   end
 
   def clip(%Context{input: input}, length \\ 20) do

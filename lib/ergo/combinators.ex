@@ -72,7 +72,7 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Terminals, Combinators}
       iex> parser = choice([literal("Foo"), literal("Bar")], label: "Foo|Bar")
       iex> context = Ergo.parse(parser, "Hello World")
-      iex> %Context{status: {:error, :no_valid_choice}, message: "<Foo|Bar> cannot be applied", ast: nil, input: "Hello World"} = context
+      iex> %Context{status: {:error, :no_valid_choice}, message: "Foo|Bar cannot be applied", ast: nil, input: "Hello World"} = context
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
     if Enum.empty?(parsers), do: raise "Cannot define a choice() with zero parsers"
@@ -88,25 +88,31 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "CHO #{label} on: #{Context.clip(ctx)}")
 
-        with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx, "<#{label}>", debug) do
+        with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx, label) do
+          new_ctx
+          |> map_fn.()
+          |> Context.trace_match(debug, "CHO", label)
           map_fn.(new_ctx)
         else
-          err_ctx -> err_fn.(err_ctx)
+          err_ctx ->
+            err_ctx
+            |> err_fn.()
+            |> Context.trace_match(debug, "CHO", label)
         end
       end
     )
   end
 
-  defp apply_parsers_in_turn(parsers, %Context{} = ctx, label, debug) do
+  defp apply_parsers_in_turn(parsers, %Context{} = ctx, label) do
     Enum.reduce_while(
       parsers,
       %{ctx | status: {:error, :no_valid_choice}, message: "#{label} cannot be applied", ast: nil},
       fn parser, %Context{} = ctx ->
         case Parser.invoke(parser, ctx) do
-          %Context{status: :ok, ast: ast} = new_ctx ->
-            new_ctx = Context.trace(new_ctx, debug, "chosen: #{inspect(ast)}")
+          %Context{status: :ok} = new_ctx ->
+            #new_ctx = Context.trace(new_ctx, debug, "CHO + #{label} #{inspect(ast)}")
             {:halt, %{new_ctx | message: nil}}
 
           _ ->
@@ -169,27 +175,23 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "SEQ #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok} = new_ctx <- sequence_reduce(parsers, ctx) do
           # We reject nils from the AST since they represent ignored values
           new_ctx
-          |> Context.trace(debug, "#{label} matched")
           |> Context.ast_without_ignored()
           |> Context.ast_in_parsed_order()
           |> map_fn.()
+          |> Context.trace_match(debug, "SEQ", label)
         else
           err_ctx ->
             err_ctx
-            |> Context.trace(debug, "#{label} failed to match")
             |> err_fn.()
+            |> Context.trace_match(debug, "SEQ", label)
         end
       end
     )
-  end
-
-  def sequence([], _opts) do
-    raise "You must supply at least one parser to sequence/2"
   end
 
   defp sequence_reduce(parsers, %Context{} = ctx) when is_list(parsers) do
@@ -272,15 +274,19 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "MNY #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok} = new_ctx <- parse_many(parser, %{ctx | ast: []}, min, max, 0) do
           new_ctx
           |> Context.ast_without_ignored()
           |> Context.ast_in_parsed_order()
           |> map_fn.()
+          |> Context.trace_match(debug, "MNY", label)
         else
-          err_ctx -> err_fn.(err_ctx)
+          err_ctx ->
+            err_ctx
+            |> err_fn.()
+            |> Context.trace_match(debug, "MNY", label)
         end
       end
     )
@@ -331,14 +337,17 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "OPT #{label} on: #{Context.clip(ctx)}")
 
         case Parser.invoke(parser, ctx) do
-          %Context{status: :ok, ast: ast} = new_ctx ->
+          %Context{status: :ok} = new_ctx ->
             new_ctx
-            |> Context.trace(debug, "matched: #{inspect(ast)}")
             |> map_fn.()
+            |> Context.trace_match(debug, "OPT", label)
           _ ->
+            ctx
+            |> Context.reset_status()
+            |> Context.trace_match(debug, "OPT", label)
             %{ctx | status: :ok}
         end
       end
@@ -363,7 +372,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "IGN #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok} = new_ctx <- Parser.invoke(parser, ctx) do
           %{new_ctx | ast: nil}
@@ -437,7 +446,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{ast: ast} = ctx ->
-        ctx = Context.trace(ctx, debug, "Try #{label} on: #{inspect(ast)}")
+        ctx = Context.trace(ctx, debug, "TRN #{label} on: #{inspect(ast)}")
 
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           new_ctx
@@ -493,7 +502,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "LAH #{label} on: #{Context.clip(ctx)}")
         case Parser.invoke(parser, ctx) do
           %Context{status: :ok} -> %{ctx | ast: nil}
           bad_ctx -> %{bad_ctx | status: {:error, :lookahead_fail}, message: nil}
@@ -526,7 +535,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "Try #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "NLA #{label} on: #{Context.clip(ctx)}")
         case Parser.invoke(parser, ctx) do
           %Context{status: {:error, _}} -> %{ctx | status: :ok}
           %Context{} -> %{ctx | status: {:error, :lookahead_fail}, message: nil}
@@ -553,10 +562,12 @@ defmodule Ergo.Combinators do
   """
   def satisfy(%Parser{} = parser, pred_fn, opts \\ []) when is_function(pred_fn) do
     label = Keyword.get(opts, :label, "satisfy<#{parser.label}>")
+    debug = Keyword.get(opts, :debug, false)
 
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
+        ctx = Context.trace(ctx, debug, "SAT #{label} on #{Context.clip(ctx)}")
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           if pred_fn.(ast) do
             new_ctx
