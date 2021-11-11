@@ -70,6 +70,7 @@ defmodule Ergo.Context do
             tracks: MapSet.new(),
             depth: 0,
             depth_pad: 2,
+            debug_override: false,
             trace: [],
             process: []
 
@@ -81,11 +82,21 @@ defmodule Ergo.Context do
     iex> Context.new(&Ergo.Parser.call/2, "Hello World")
     %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %MapSet{}, invoke_fn: &Ergo.Parser.call/2}
   """
-  def new(invoke_fn, input \\ "", options \\ []) when is_function(invoke_fn) and is_binary(input) do
+  def new(invoke_fn, input \\ "", options \\ [])
+      when is_function(invoke_fn) and is_binary(input) do
     ast = Keyword.get(options, :ast, nil)
     data = Keyword.get(options, :data, %{})
     padding = Keyword.get(options, :padding, 2)
-    %Context{invoke_fn: invoke_fn, input: input, ast: ast, data: data, depth_pad: padding}
+    override = Keyword.get(options, :debug, false)
+
+    %Context{
+      invoke_fn: invoke_fn,
+      input: input,
+      ast: ast,
+      data: data,
+      depth_pad: padding,
+      debug_override: override
+    }
   end
 
   @doc ~S"""
@@ -157,7 +168,9 @@ defmodule Ergo.Context do
     }
   end
 
-  def next_char(%Context{input: input, consumed: consumed, index: index, line: line, col: col} = ctx) do
+  def next_char(
+        %Context{input: input, consumed: consumed, index: index, line: line, col: col} = ctx
+      ) do
     <<char::utf8, rest::binary>> = input
     {new_index, new_line, new_col} = wind_forward({index, line, col}, char == ?\n)
 
@@ -257,7 +270,6 @@ defmodule Ergo.Context do
     tr_fn.(ctx)
   end
 
-
   def trace(%Context{depth: depth, depth_pad: padd, trace: trace} = ctx, true, message) do
     depth_field = String.pad_leading(to_string(depth), padd, "0")
     %{ctx | trace: trace ++ ["[#{depth_field}] #{message}"]}
@@ -268,23 +280,22 @@ defmodule Ergo.Context do
   end
 
   def trace_match(%Context{status: :ok, ast: ast} = ctx, debug, type, label) do
-    trace(ctx, debug, "#{type} + #{label} #{inspect(ast)}")
+    trace(ctx, debug, ".... #{type} +M #{label} #{inspect(ast)}")
   end
 
   def trace_match(%Context{status: {:error, reason}} = ctx, debug, type, label) do
-    trace(ctx, debug, "#{type} - #{label} #{inspect(reason)}")
+    trace(ctx, debug, ".... #{type} -E #{label} #{inspect(reason)}")
   end
 
-  def clip(%Context{input: input}, length \\ 20) do
-    "\"#{String.trim(Utils.ellipsize(input, length))}\""
+  def clip(%Context{input: input}, length \\ 40) do
+    "\"#{String.trim_trailing(Utils.ellipsize(input, length))}\""
   end
 
   def inc_depth(%Context{depth: depth} = ctx) do
-    %{ctx | depth: depth+1}
+    %{ctx | depth: depth + 1}
   end
 
   def dec_depth(%Context{depth: depth} = ctx) do
-    %{ctx | depth: depth-1}
+    %{ctx | depth: depth - 1}
   end
-
 end

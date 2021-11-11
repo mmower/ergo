@@ -112,15 +112,15 @@ defmodule Ergo.Parser do
   end
 
   def trace_in(%Context{line: line, col: col} = ctx, label, debug) do
-    Context.trace(ctx, debug, "I #{label} @ #{line}:#{col} on: #{Context.clip(ctx)}")
+    Context.trace(ctx, debug, "---> #{label} L#{line}:#{col} on: #{Context.clip(ctx)}")
   end
 
   def trace_out(%Context{status: :ok, ast: ast} = ctx, label, debug) do
-    Context.trace(ctx, debug, "O #{label} OK -> #{inspect(ast)}")
+    Context.trace(ctx, debug, "<+OK #{label} -> #{inspect(ast)}")
   end
 
   def trace_out(%Context{status: {:error, reason}, message: message} = ctx, label, debug) do
-    Context.trace(ctx, debug, "#{label} ERROR -> #{inspect(reason)}: #{inspect(message)}")
+    Context.trace(ctx, debug, "<ERR #{label} -> #{inspect(reason)}: #{inspect(message)}")
   end
 
   def process(%Context{process: process} = ctx, parser) do
@@ -156,17 +156,9 @@ defmodule Ergo.Parser do
     {{line, col}, Utils.ellipsize(input, 20), ref, label, status}
   end
 
-  def should_debug?(_, _) do
-    true
+  def should_debug?(%Parser{combinator: combinator, debug: debug}, %Context{debug_override: override}) do
+    combinator || debug || override
   end
-
-  # defp should_debug?(%Parser{combinator: true}, %Context{}) do
-  #   true
-  # end
-
-  # defp should_debug?(%Parser{combinator: false}, %Context{called_from: [caller | _]}) do
-  #   !is_nil(caller) && caller.debug
-  # end
 
   @doc ~S"""
   `track_parser` first checks if the parser has already been tracked for the current input index and, if it has,
