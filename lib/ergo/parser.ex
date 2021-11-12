@@ -112,15 +112,15 @@ defmodule Ergo.Parser do
   end
 
   def trace_in(%Context{line: line, col: col} = ctx, label, debug) do
-    Context.trace(ctx, debug, "---> #{label} L#{line}:#{col} on: #{Context.clip(ctx)}")
+    Context.trace(ctx, debug, "-->> #{label} L#{line}:#{col} on: #{Context.clip(ctx)}")
   end
 
   def trace_out(%Context{status: :ok, ast: ast} = ctx, label, debug) do
-    Context.trace(ctx, debug, "<+OK #{label} -> #{inspect(ast)}")
+    Context.trace(ctx, debug, "  OK #{label} -> #{inspect(ast)}")
   end
 
   def trace_out(%Context{status: {:error, reason}, message: message} = ctx, label, debug) do
-    Context.trace(ctx, debug, "<ERR #{label} -> #{inspect(reason)}: #{inspect(message)}")
+    Context.trace(ctx, debug, " ERR #{label} -> #{inspect(reason)}: #{inspect(message)}")
   end
 
   def process(%Context{process: process} = ctx, parser) do

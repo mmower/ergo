@@ -280,11 +280,11 @@ defmodule Ergo.Context do
   end
 
   def trace_match(%Context{status: :ok, ast: ast} = ctx, debug, type, label) do
-    trace(ctx, debug, ".... #{type} +M #{label} #{inspect(ast)}")
+    trace(ctx, debug, "#{type} #{label} matched:#{inspect(ast)}")
   end
 
   def trace_match(%Context{status: {:error, reason}} = ctx, debug, type, label) do
-    trace(ctx, debug, ".... #{type} -E #{label} #{inspect(reason)}")
+    trace(ctx, debug, "#{type} #{label} failed:#{inspect(reason)}")
   end
 
   def clip(%Context{input: input}, length \\ 40) do

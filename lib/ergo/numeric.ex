@@ -32,7 +32,7 @@ defmodule Ergo.Numeric do
     Parser.terminal(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "UNT #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ UNT #{label} on: #{Context.clip(ctx)}")
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           uint_value = ast |> Enum.join("") |> String.to_integer()
           %{new_ctx | ast: uint_value}
@@ -58,7 +58,7 @@ defmodule Ergo.Numeric do
     Parser.terminal(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "DEC #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ DEC #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           [i_part | [d_part]] = ast

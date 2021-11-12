@@ -88,18 +88,18 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "CHO #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ CHO #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx, label) do
           new_ctx
           |> map_fn.()
-          |> Context.trace_match(debug, "CHO", label)
+          |> Context.trace_match(debug, "____ CHO", label)
           map_fn.(new_ctx)
         else
           err_ctx ->
             err_ctx
             |> err_fn.()
-            |> Context.trace_match(debug, "CHO", label)
+            |> Context.trace_match(debug, "____ CHO", label)
         end
       end
     )
@@ -175,7 +175,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "SEQ #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ SEQ #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok} = new_ctx <- sequence_reduce(parsers, ctx) do
           # We reject nils from the AST since they represent ignored values
@@ -183,12 +183,12 @@ defmodule Ergo.Combinators do
           |> Context.ast_without_ignored()
           |> Context.ast_in_parsed_order()
           |> map_fn.()
-          |> Context.trace_match(debug, "SEQ", label)
+          |> Context.trace_match(debug, "____ SEQ", label)
         else
           err_ctx ->
             err_ctx
             |> err_fn.()
-            |> Context.trace_match(debug, "SEQ", label)
+            |> Context.trace_match(debug, "____ SEQ", label)
         end
       end
     )
@@ -274,7 +274,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "MNY #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ MNY #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok} = new_ctx <- parse_many(parser, %{ctx | ast: []}, min, max, 0) do
           new_ctx
@@ -337,7 +337,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "OPT #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ OPT #{label} on: #{Context.clip(ctx)}")
 
         case Parser.invoke(parser, ctx) do
           %Context{status: :ok} = new_ctx ->
@@ -372,7 +372,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "IGN #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ IGN #{label} on: #{Context.clip(ctx)}")
 
         with %Context{status: :ok} = new_ctx <- Parser.invoke(parser, ctx) do
           %{new_ctx | ast: nil}
@@ -446,7 +446,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{ast: ast} = ctx ->
-        ctx = Context.trace(ctx, debug, "TRN #{label} on: #{inspect(ast)}")
+        ctx = Context.trace(ctx, debug, "____ TRN #{label} on: #{inspect(ast)}")
 
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           new_ctx
@@ -502,7 +502,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "LAH #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ LAH #{label} on: #{Context.clip(ctx)}")
         case Parser.invoke(parser, ctx) do
           %Context{status: :ok} -> %{ctx | ast: nil}
           bad_ctx -> %{bad_ctx | status: {:error, :lookahead_fail}, message: nil}
@@ -535,7 +535,7 @@ defmodule Ergo.Combinators do
     Parser.combinator(
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "NLA #{label} on: #{Context.clip(ctx)}")
+        ctx = Context.trace(ctx, debug, "____ NLA #{label} on: #{Context.clip(ctx)}")
         case Parser.invoke(parser, ctx) do
           %Context{status: {:error, _}} -> %{ctx | status: :ok}
           %Context{} -> %{ctx | status: {:error, :lookahead_fail}, message: nil}
