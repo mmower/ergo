@@ -62,6 +62,7 @@ defmodule Ergo.Context do
             index: 0,
             line: 1,
             col: 1,
+            entry_points: [],
             data: %{},
             ast: nil,
             parser: nil,

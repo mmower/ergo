@@ -99,6 +99,14 @@ defmodule Ergo.Parser do
     ctx
   end
 
+  def enter(%Context{entry_points: entry_points, line: line, col: col} = ctx) do
+    %{ctx | entry_points: [{line, col} | entry_points]}
+  end
+
+  def leave(%Context{entry_points: [_ | entry_points]} = ctx) do
+    %{ctx | entry_points: entry_points}
+  end
+
   @doc ~S"""
   `call/2` invokes the specified parser by calling its parsing function with the specified context having
   first reset the context status.
@@ -107,7 +115,9 @@ defmodule Ergo.Parser do
     ctx
     |> Context.reset_status()
     |> track_parser(parser)
+    |> enter()
     |> parser_fn.()
+    |> leave()
     |> rewrite_error(parser)
   end
 
