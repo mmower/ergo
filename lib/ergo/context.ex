@@ -20,10 +20,6 @@ defmodule Ergo.Context do
   `{:error, :error_atom}` where `error_atom` is an atom indiciting the specific type of error. It may optionally
   set the `message` field to a human readable message.
 
-  * `message`
-
-  A human readable version of any error raised.
-
   * `input`
 
   The binary input being parsed.
@@ -56,7 +52,6 @@ defmodule Ergo.Context do
 
   defstruct invoke_fn: nil,
             status: :ok,
-            message: nil,
             input: "",
             consumed: "",
             index: 0,
@@ -106,12 +101,41 @@ defmodule Ergo.Context do
   ## Examples
 
       iex> context = Context.new(&Ergo.Parser.call/2, "Hello World")
-      iex> context = %{context | status: {:error, :inexplicable_error}, ast: true}
+      iex> context = %{context | status: {:error, [{:inexplicable_error, "What the…"}]}, ast: true}
       iex> context = Context.reset_status(context)
       iex> assert %Context{status: :ok, ast: nil} = context
   """
   def reset_status(%Context{} = ctx) do
-    %{ctx | status: :ok, ast: nil, message: nil}
+    %{ctx | status: :ok, ast: nil}
+  end
+
+  @doc """
+  ## Examples
+      iex> alias Ergo.Context
+      iex> context =
+      ...>  Context.new(&Ergo.Parser.call/2, "Hello World")
+      ...>  |> Context.add_error(:unexpected_char, "Expected 'e' got '.'")
+      iex> assert is_nil(context.ast)
+      iex> assert {:error, [{:unexpected_char, "Expected 'e' got '.'"}]} = context.status
+
+      iex> alias Ergo.Context
+      iex> context =
+      ...>  Context.new(&Ergo.Parser.call/2, "Hello World")
+      ...>  |> Context.add_error(:unexpected_char, "Expected 'e' got '.'")
+      ...>  |> Context.add_error(:literal_failed, "Expected 'end'")
+      iex> assert is_nil(context.ast)
+      iex> assert {:error, [{:literal_failed, "Expected 'end'"}, {:unexpected_char, "Expected 'e' got '.'"}]} = context.status
+  """
+  def add_error(%Context{status: :ok} = ctx, code, message) do
+    %{ctx | ast: nil, status: {:error, [{code, message}]}}
+  end
+
+  def add_error(%Context{status: {:error, errors}} = ctx, code, message) when is_list(errors) do
+    %{ctx | ast: nil, status: {:error, [{code, message} | errors]}}
+  end
+
+  def add_errors(%Context{status: :ok} = ctx, errors) when is_list(errors) do
+    %{ctx | ast: nil, status: {:error, errors}}
   end
 
   @doc ~S"""
@@ -154,7 +178,7 @@ defmodule Ergo.Context do
   ## Examples
 
     iex> context = Context.next_char(Context.new(&Ergo.Parser.call/2, ""))
-    iex> assert %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input"} = context
+    iex> assert %Context{status: {:error, [{:unexpected_eoi, "Unexpected end of input"}] }} = context
 
     iex> context = Context.next_char(Context.new(&Ergo.Parser.call/2, "Hello World"))
     iex> assert %Context{status: :ok, input: "ello World", ast: ?H, index: 1, line: 1, col: 2} = context
@@ -162,11 +186,12 @@ defmodule Ergo.Context do
   def next_char(context)
 
   def next_char(%Context{input: ""} = ctx) do
-    %{
-      ctx
-      | status: {:error, :unexpected_eoi},
-        message: "Unexpected end of input"
-    }
+    Context.add_error(ctx, :unexpected_eoi, "Unexpected end of input")
+    # %{
+    #   ctx
+    #   | status: {:error, },
+    #     message:
+    # }
   end
 
   def next_char(
@@ -200,7 +225,7 @@ defmodule Ergo.Context do
       iex> assert %Context{status: :ok, ast: ?H, input: "ello", index: 1, line: 1, col: 2} = Context.peek(context)
 
       iex> context = Context.new(&Ergo.Parser.call/2, "")
-      iex> assert %Context{status: {:error, :unexpected_eoi}, message: "Unexpected end of input", index: 0, line: 1, col: 1} = Context.peek(context)
+      iex> assert %Context{status: {:error, [{:unexpected_eoi, "Unexpected end of input"}]}, index: 0, line: 1, col: 1} = Context.peek(context)
   """
   def peek(%Context{} = ctx) do
     with %Context{status: :ok} = peek_ctx <- next_char(ctx) do

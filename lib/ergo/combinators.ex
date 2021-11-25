@@ -50,9 +50,12 @@ defmodule Ergo.Combinators do
     ast_fn = Keyword.get(opts, :ast)
 
     cond do
-      is_function(ctx_fn) -> ctx_fn
-      is_function(ast_fn) -> fn %Context{ast: ast} = ctx -> %{ctx | ast: ast_fn.(ast)} end
-      true -> &Function.identity/1
+      is_function(ctx_fn) ->
+        ctx_fn
+      is_function(ast_fn) ->
+        fn %Context{ast: ast} = ctx -> %{ctx | ast: ast_fn.(ast)} end
+      true ->
+        &Function.identity/1
     end
   end
 
@@ -72,7 +75,7 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Terminals, Combinators}
       iex> parser = choice([literal("Foo"), literal("Bar")], label: "Foo|Bar")
       iex> context = Ergo.parse(parser, "Hello World")
-      iex> %Context{status: {:error, :no_valid_choice}, message: "Foo|Bar cannot be applied", ast: nil, input: "Hello World"} = context
+      iex> %Context{status: {:error, [{:no_valid_choice, "Foo|Bar cannot be applied"}]}, ast: nil, input: "Hello World"} = context
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
     if Enum.empty?(parsers), do: raise "Cannot define a choice() with zero parsers"
@@ -81,7 +84,7 @@ defmodule Ergo.Combinators do
     label = Keyword.get(opts, :label, "choice<#{parser_labels(parsers)}>")
     debug = Keyword.get(opts, :debug, false)
     map_fn = mapping_fn(opts)
-    err_fn = Keyword.get(opts, :error, &Function.identity/1)
+    err_fn = Keyword.get(opts, :err, &Function.identity/1)
 
     validate_parsers(parsers)
 
@@ -108,12 +111,12 @@ defmodule Ergo.Combinators do
   defp apply_parsers_in_turn(parsers, %Context{} = ctx, label) do
     Enum.reduce_while(
       parsers,
-      %{ctx | status: {:error, :no_valid_choice}, message: "#{label} cannot be applied", ast: nil},
+      Context.add_error(ctx, :no_valid_choice, "#{label} cannot be applied"),
       fn parser, %Context{} = ctx ->
         case Parser.invoke(parser, ctx) do
           %Context{status: :ok} = new_ctx ->
             #new_ctx = Context.trace(new_ctx, debug, "CHO + #{label} #{inspect(ast)}")
-            {:halt, %{new_ctx | message: nil}}
+            {:halt, new_ctx}
 
           _ ->
             {:cont, ctx}
@@ -157,7 +160,7 @@ defmodule Ergo.Combinators do
       iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
       iex> parser = sequence([literal("foo"), ws(), literal("bar")])
-      iex> assert %Context{status: {:error, :unexpected_char}} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: {:error, [{:bad_literal, _}, {:unexpected_char, _}]}} = Ergo.parse(parser, "Hello World")
   """
   def sequence(parsers, opts \\ [])
 
@@ -245,7 +248,7 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Combinators, Terminals}
       iex> parser = many(wc(), min: 6)
       iex> context = Ergo.parse(parser, "Hello World")
-      iex> assert %Context{status: {:error, :many_less_than_min}, ast: nil, input: " World", index: 5, col: 6} = context
+      iex> assert %Context{status: {:error, [{:many_less_than_min, "5 < 6"}]}, ast: nil, input: " World", index: 5, col: 6} = context
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Combinators, Terminals}
@@ -298,7 +301,7 @@ defmodule Ergo.Combinators do
     case Parser.invoke(parser, ctx) do
       %Context{status: {:error, _}} ->
         if count < min do
-          %{ctx | status: {:error, :many_less_than_min}, message: "in many #{count} less than #{min}", ast: nil}
+          Context.add_error(ctx, :many_less_than_min, "#{count} < #{min}")
         else
           ctx
         end
@@ -493,7 +496,7 @@ defmodule Ergo.Combinators do
       iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
       iex> parser = lookahead(literal("Helga"))
-      iex> assert %Context{status: {:error, :lookahead_fail}, ast: [?l, ?e, ?H], index: 3, col: 4, input: "lo World"} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: {:error, [{:lookahead_fail, _}, {:bad_literal, _}, {:unexpected_char, _}]}, index: 3, col: 4, input: "lo World"} = Ergo.parse(parser, "Hello World")
   """
   def lookahead(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "lookahead<#{parser.label}>")
@@ -505,7 +508,8 @@ defmodule Ergo.Combinators do
         ctx = Context.trace(ctx, debug, "____ LAH #{label} on: #{Context.clip(ctx)}")
         case Parser.invoke(parser, ctx) do
           %Context{status: :ok} -> %{ctx | ast: nil}
-          bad_ctx -> %{bad_ctx | status: {:error, :lookahead_fail}, message: nil}
+          bad_ctx -> Context.add_error(bad_ctx, :lookahead_fail, "Could not satisfy: #{parser.label}")
+          # %{bad_ctx | status: {:error, }, message: nil}
         end
       end
     )
@@ -526,7 +530,7 @@ defmodule Ergo.Combinators do
     iex> alias Ergo.{Context, Parser}
     iex> import Ergo.{Combinators, Terminals}
     iex> parser = not_lookahead(literal("Hello"))
-    iex> assert %Context{status: {:error, :lookahead_fail}, input: "Hello World"} = Ergo.parse(parser, "Hello World")
+    iex> assert %Context{status: {:error, [{:lookahead_fail, "Satisfied: literal<Hello>"}]}, input: "Hello World"} = Ergo.parse(parser, "Hello World")
   """
   def not_lookahead(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "-lookahead<#{parser.label}>")
@@ -538,7 +542,7 @@ defmodule Ergo.Combinators do
         ctx = Context.trace(ctx, debug, "____ NLA #{label} on: #{Context.clip(ctx)}")
         case Parser.invoke(parser, ctx) do
           %Context{status: {:error, _}} -> %{ctx | status: :ok}
-          %Context{} -> %{ctx | status: {:error, :lookahead_fail}, message: nil}
+          %Context{} -> Context.add_error(ctx, :lookahead_fail, "Satisfied: #{parser.label}")
         end
       end
     )
@@ -555,10 +559,10 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Terminals, Combinators, Numeric}
       iex> parser = satisfy(any(), fn char -> char in (?0..?9) end, label: "digit char")
       iex> assert %Context{status: :ok, ast: ?4} = Ergo.parse(parser, "4")
-      iex> assert %Context{status: {:error, :unsatisfied}} = Ergo.parse(parser, "!")
+      iex> assert %Context{status: {:error, [{:unsatisfied, "Failed to satisfy: digit char"}]}} = Ergo.parse(parser, "!")
       iex> parser = satisfy(number(), fn n -> Integer.mod(n, 2) == 0 end, label: "even number")
       iex> assert %Context{status: :ok, ast: 42} = Ergo.diagnose(parser, "42")
-      iex> assert %Context{status: {:error, :unsatisfied}} = Ergo.parse(parser, "27")
+      iex> assert %Context{status: {:error, [{:unsatisfied, "Failed to satisfy: even number"}]}} = Ergo.parse(parser, "27")
   """
   def satisfy(%Parser{} = parser, pred_fn, opts \\ []) when is_function(pred_fn) do
     label = Keyword.get(opts, :label, "satisfy<#{parser.label}>")
@@ -572,7 +576,7 @@ defmodule Ergo.Combinators do
           if pred_fn.(ast) do
             new_ctx
           else
-            %{ctx | status: {:error, :unsatisfied}, message: "Failed to satisfy #{label}"}
+            Context.add_error(ctx, :unsatisfied, "Failed to satisfy: #{label}")
           end
         end
       end

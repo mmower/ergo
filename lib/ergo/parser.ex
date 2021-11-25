@@ -85,9 +85,7 @@ defmodule Ergo.Parser do
   The rewrite_error/2 call allows a higher-level parser to rewrite the error returned by a subordinate
   parser, translating it into something a user is more likely to be able to understand.
   """
-
   def rewrite_error(%Context{status: {:error, _} = status} = ctx, %Parser{err: err}) when is_function(err) do
-    IO.puts("\nREWRITE ERROR\n")
     try do
       %{ctx | status: err.(status)}
     rescue
@@ -129,8 +127,8 @@ defmodule Ergo.Parser do
     Context.trace(ctx, debug, "  OK #{label} -> #{inspect(ast)}")
   end
 
-  def trace_out(%Context{status: {:error, reason}, message: message} = ctx, label, debug) do
-    Context.trace(ctx, debug, " ERR #{label} -> #{inspect(reason)}: #{inspect(message)}")
+  def trace_out(%Context{status: {:error, [{code, reason} | []]}} = ctx, label, debug) do
+    Context.trace(ctx, debug, " ERR #{label} -> #{inspect(code)}: #{inspect(reason)}")
   end
 
   def process(%Context{process: process} = ctx, parser) do
