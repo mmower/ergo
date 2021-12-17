@@ -27,26 +27,26 @@ defmodule Ergo.Meta do
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Meta
-      iex> null_parser = Parser.combinator("null_parser", fn %Context{} = ctx -> ctx end)
+      iex> null_parser = Parser.combinator(:null, "null_parser", fn %Context{} = ctx -> ctx end)
       iex> assert_raise(RuntimeError, fn -> Ergo.parse(around(null_parser), "") end)
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Meta
-      iex> null_parser = Parser.combinator("null_parser", fn %Context{} = ctx -> ctx end)
+      iex> null_parser = Parser.combinator(:null, "null_parser", fn %Context{} = ctx -> ctx end)
       iex> parser = around(null_parser, before: fn _ctx -> send(self(), :before) end)
       iex> Ergo.parse(parser, "")
       iex> assert_receive :before
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Meta
-      iex> null_parser = Parser.combinator("null_parser", fn %Context{} = ctx -> ctx end)
+      iex> null_parser = Parser.combinator(:null, "null_parser", fn %Context{} = ctx -> ctx end)
       iex> parser = around(null_parser, after: fn _ctx, _new_ctx -> send(self(), :after) end)
       iex> Ergo.parse(parser, "")
       iex> assert_receive :after
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Meta
-      iex> null_parser = Parser.combinator("null_parser", fn %Context{} = ctx -> ctx end)
+      iex> null_parser = Parser.combinator(:null, "null_parser", fn %Context{} = ctx -> ctx end)
       iex> parser = around(null_parser, before: fn _ctx -> send(self(), :before) end, after: fn _ctx, _new_ctx -> send(self(), :after) end)
       iex> Ergo.parse(parser, "")
       iex> assert_receive :before
@@ -61,34 +61,40 @@ defmodule Ergo.Meta do
       before_fn && !after_fn ->
         label = Keyword.get(opts, :label, "before<#{parser.label}>")
         Parser.combinator(
+          :before,
           label,
           fn %Context{} = ctx ->
             before_fn.(ctx)
             Parser.invoke(parser, ctx)
-          end
+          end,
+          children: [parser]
         )
 
       after_fn && !before_fn ->
         label = Keyword.get(opts, :label, "after<#{parser.label}>")
         Parser.combinator(
+          :after,
           label,
           fn %Context{} = ctx ->
             new_ctx = Parser.invoke(parser, ctx)
             after_fn.(ctx, new_ctx)
             new_ctx
-          end
+          end,
+          children: [parser]
         )
 
       before_fn && after_fn ->
         Keyword.get(opts, :label, "around<#{parser.label}>")
         Parser.combinator(
+          :around,
           label,
           fn %Context{} = ctx ->
             before_fn.(ctx)
             new_ctx = Parser.invoke(parser, ctx)
             after_fn.(ctx, new_ctx)
             new_ctx
-          end
+          end,
+          children: [parser]
         )
 
       true ->
@@ -106,8 +112,8 @@ defmodule Ergo.Meta do
 
       iex> alias Ergo.Parser
       iex> import Ergo.Meta
-      iex> failing_parser = Parser.combinator("err_parser", fn ctx -> %{ctx | status: {:error, :unfathomable_error}} end)
-      iex> parser = failed(failing_parser, fn _ctx -> send(self(), :failed) end)
+      iex> failing_parser = Parser.combinator(:err, "err_parser", fn ctx -> %{ctx | status: {:error, :unfathomable_error}} end)
+      iex> parser = failed(failing_parser, fn _pre_ctx, _post_ctx, _parser -> send(self(), :failed) end)
       iex> Ergo.parse(parser, "")
       iex> assert_received :failed
   """
@@ -115,35 +121,15 @@ defmodule Ergo.Meta do
     label = Keyword.get(opts, :label, "failed<#{parser.label}>")
 
     Parser.combinator(
+      :failed,
       label,
       fn %Context{} = ctx ->
         with %Context{status: {:error, _}} = new_ctx <- Parser.invoke(parser, ctx) do
-          fail_fn.(new_ctx)
+          fail_fn.(ctx, new_ctx, parser)
           new_ctx
         end
       end,
-      label: label,
-      combinator: true
-    )
-  end
-
-  # def wrap(%Parser{} = parser, label) do
-  #   Parser.combinator(
-  #     fn %Context{} = ctx ->
-  #       Parser.invoke(parser, %{ctx | track: false})
-  #     end,
-  #     label: label,
-  #     description: label
-  #   )
-  # end
-
-  def suppress_caller_logging(%Parser{} = parser) do
-    Parser.combinator(
-      "suppress_logging<#{parser.label}>",
-      fn %Context{caller_logging: caller_logging} = ctx ->
-        ctx_2 = Parser.invoke(parser, %{ctx | caller_logging: false})
-        %{ctx_2 | caller_logging: caller_logging}
-      end
+      children: [parser]
     )
   end
 

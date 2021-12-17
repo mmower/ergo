@@ -1,6 +1,5 @@
 defmodule Ergo.CombinatorsTest do
   use ExUnit.Case
-  @moduletag capture_log: true
   doctest Ergo.Combinators
 
   alias Ergo
@@ -26,10 +25,5 @@ defmodule Ergo.CombinatorsTest do
       Terminals.wc(),
       binding()
     ]) end)
-  end
-
-  test "traces sequence" do
-    parser = Combinators.sequence([Terminals.digit(), Terminals.digit()], label: "2digits", debug: true)
-    assert %{trace: ["[00] ____ SEQ 2digits on: \"12\"", "[00] ____ SEQ 2digits matched:'12'"]} = Ergo.parse(parser, "12")
   end
 end

@@ -17,12 +17,17 @@ defmodule Ergo.Context do
   * `status`
 
   When a parser returns it either sets `status` to `:ok` to indicate that it was successful or to a tuple
-  `{:error, :error_atom}` where `error_atom` is an atom indiciting the specific type of error. It may optionally
-  set the `message` field to a human readable message.
+  `{:error, reasons}` where reasons is a list of tuples representing a sequence of errors. Each tuple is of
+  the form `{code, message}` where code is an atom indiciting the specific type of error and the message
+  contains additional human-focused information that may be helpful in diagnosing the problem.
 
   * `input`
 
   The binary input being parsed.
+
+  * `consumed`
+
+  The binary input that has already been consumed by parsing.
 
   * `index`
 
@@ -36,9 +41,21 @@ defmodule Ergo.Context do
 
   Represents the current column of the input. Initially 1 it is incremented every time a character is read from the input and automatically resets whenever a `\n` is read.
 
+  * `entry_points`
+
+  A list of `Parser` entry points
+
+  * `data`
+
+  Map containing user-data that the parsers can use to pass information between them.
+
   * `ast`
 
   Represents the current data structure being built from the input.
+
+  * `parser`
+
+  The current parser.
 
   * `tracks`
 
@@ -48,10 +65,19 @@ defmodule Ergo.Context do
   to add itself a second time at the same index an error is thrown because a
   cycle has been detected.
 
+  * `depth`
+  * `depth_pad`
+  * `debug_override`
+  * `trace`
+  * `process`
+
   """
 
-  defstruct invoke_fn: nil,
+  defstruct id: nil,
+            created_at: nil,
+            invoke_fn: nil,
             status: :ok,
+            serial: 0,
             input: "",
             consumed: "",
             index: 0,
@@ -61,37 +87,30 @@ defmodule Ergo.Context do
             data: %{},
             ast: nil,
             parser: nil,
-            called_from: [],
-            caller_logging: true,
             tracks: MapSet.new(),
-            depth: 0,
-            depth_pad: 2,
-            debug_override: false,
-            trace: [],
-            process: []
+            depth: 0
 
   @doc """
   `new` returns a newly initialised `Context` with `input` set to the string passed in.
 
   ## Examples:
-
-    iex> Context.new(&Ergo.Parser.call/2, "Hello World")
-    %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %MapSet{}, invoke_fn: &Ergo.Parser.call/2}
+    iex> alias Ergo.Context
+    iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %MapSet{}} = Context.new(&Ergo.Parser.call/1, "Hello World")
   """
   def new(invoke_fn, input \\ "", options \\ [])
       when is_function(invoke_fn) and is_binary(input) do
     ast = Keyword.get(options, :ast, nil)
     data = Keyword.get(options, :data, %{})
-    padding = Keyword.get(options, :padding, 2)
-    override = Keyword.get(options, :debug, false)
+
+    {:ok, creation_time} = DateTime.now("Etc/UTC")
 
     %Context{
+      id: make_ref(),
+      created_at: creation_time,
       invoke_fn: invoke_fn,
       input: input,
       ast: ast,
-      data: data,
-      depth_pad: padding,
-      debug_override: override
+      data: data
     }
   end
 
@@ -100,7 +119,7 @@ defmodule Ergo.Context do
 
   ## Examples
 
-      iex> context = Context.new(&Ergo.Parser.call/2, "Hello World")
+      iex> context = Context.new(&Ergo.Parser.call/1, "Hello World")
       iex> context = %{context | status: {:error, [{:inexplicable_error, "What the…"}]}, ast: true}
       iex> context = Context.reset_status(context)
       iex> assert %Context{status: :ok, ast: nil} = context
@@ -113,25 +132,25 @@ defmodule Ergo.Context do
   ## Examples
       iex> alias Ergo.Context
       iex> context =
-      ...>  Context.new(&Ergo.Parser.call/2, "Hello World")
+      ...>  Context.new(&Ergo.Parser.call/1, "Hello World")
       ...>  |> Context.add_error(:unexpected_char, "Expected 'e' got '.'")
       iex> assert is_nil(context.ast)
-      iex> assert {:error, [{:unexpected_char, "Expected 'e' got '.'"}]} = context.status
+      iex> assert {:error, [{:unexpected_char, {1, 1}, "Expected 'e' got '.'"}]} = context.status
 
       iex> alias Ergo.Context
       iex> context =
-      ...>  Context.new(&Ergo.Parser.call/2, "Hello World")
+      ...>  Context.new(&Ergo.Parser.call/1, "Hello World")
       ...>  |> Context.add_error(:unexpected_char, "Expected 'e' got '.'")
       ...>  |> Context.add_error(:literal_failed, "Expected 'end'")
       iex> assert is_nil(context.ast)
-      iex> assert {:error, [{:literal_failed, "Expected 'end'"}, {:unexpected_char, "Expected 'e' got '.'"}]} = context.status
+      iex> assert {:error, [{:literal_failed, {1, 1}, "Expected 'end'"}, {:unexpected_char, {1, 1}, "Expected 'e' got '.'"}]} = context.status
   """
-  def add_error(%Context{status: :ok} = ctx, code, message) do
-    %{ctx | ast: nil, status: {:error, [{code, message}]}}
+  def add_error(%Context{status: :ok, line: line, col: col} = ctx, code, message) do
+    %{ctx | ast: nil, status: {:error, [{code, {line, col}, message}]}}
   end
 
-  def add_error(%Context{status: {:error, errors}} = ctx, code, message) when is_list(errors) do
-    %{ctx | ast: nil, status: {:error, [{code, message} | errors]}}
+  def add_error(%Context{status: {:error, errors}, line: line, col: col} = ctx, code, message) when is_list(errors) do
+    %{ctx | ast: nil, status: {:error, [{code, {line, col}, message} | errors]}}
   end
 
   def add_errors(%Context{status: :ok} = ctx, errors) when is_list(errors) do
@@ -145,7 +164,7 @@ defmodule Ergo.Context do
 
     iex> alias Ergo.Context
     iex> parser_ref = 123
-    iex> context = Context.new(&Ergo.Parser.call/2, "Hello World") |> Context.track_parser(parser_ref)
+    iex> context = Context.new(&Ergo.Parser.call/1, "Hello World") |> Context.track_parser(parser_ref)
     iex> assert Context.parser_tracked?(context, parser_ref)
   """
   def parser_tracked?(%Context{tracks: tracks, index: index}, ref) when is_integer(ref) do
@@ -159,7 +178,7 @@ defmodule Ergo.Context do
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
-      iex> context = Context.new(&Ergo.Parser.call/2, "Hello World")
+      iex> context = Context.new(&Ergo.Parser.call/1, "Hello World")
       iex> parser = literal("Hello")
       iex> context2 = Context.track_parser(context, parser.ref)
       iex> assert MapSet.member?(context2.tracks, {parser.ref, 0})
@@ -177,10 +196,10 @@ defmodule Ergo.Context do
 
   ## Examples
 
-    iex> context = Context.next_char(Context.new(&Ergo.Parser.call/2, ""))
-    iex> assert %Context{status: {:error, [{:unexpected_eoi, "Unexpected end of input"}] }} = context
+    iex> context = Context.next_char(Context.new(&Ergo.Parser.call/1, ""))
+    iex> assert %Context{status: {:error, [{:unexpected_eoi, {1, 1}, "Unexpected end of input"}] }} = context
 
-    iex> context = Context.next_char(Context.new(&Ergo.Parser.call/2, "Hello World"))
+    iex> context = Context.next_char(Context.new(&Ergo.Parser.call/1, "Hello World"))
     iex> assert %Context{status: :ok, input: "ello World", ast: ?H, index: 1, line: 1, col: 2} = context
   """
   def next_char(context)
@@ -221,11 +240,11 @@ defmodule Ergo.Context do
 
   @doc """
   ## Examples
-      iex> context = Context.new(&Ergo.Parser.call/2, "Hello")
+      iex> context = Context.new(&Ergo.Parser.call/1, "Hello")
       iex> assert %Context{status: :ok, ast: ?H, input: "ello", index: 1, line: 1, col: 2} = Context.peek(context)
 
-      iex> context = Context.new(&Ergo.Parser.call/2, "")
-      iex> assert %Context{status: {:error, [{:unexpected_eoi, "Unexpected end of input"}]}, index: 0, line: 1, col: 1} = Context.peek(context)
+      iex> context = Context.new(&Ergo.Parser.call/1, "")
+      iex> assert %Context{status: {:error, [{:unexpected_eoi, {1, 1}, "Unexpected end of input"}]}, index: 0, line: 1, col: 1} = Context.peek(context)
   """
   def peek(%Context{} = ctx) do
     with %Context{status: :ok} = peek_ctx <- next_char(ctx) do
@@ -238,7 +257,7 @@ defmodule Ergo.Context do
   Call this function to remove them
 
   ## Examples
-      iex> context = Ergo.Context.new(&Ergo.Parser.call/2, "", ast: ["Hello", nil, "World", nil])
+      iex> context = Ergo.Context.new(&Ergo.Parser.call/1, "", ast: ["Hello", nil, "World", nil])
       iex> assert %Context{ast: ["Hello", "World"]} = Context.ast_without_ignored(context)
   """
   def ast_without_ignored(%Context{ast: ast} = ctx) do
@@ -250,7 +269,7 @@ defmodule Ergo.Context do
   to in-parse-order
 
   ## Examples
-      iex> context = Ergo.Context.new(&Ergo.Parser.call/2, "", ast: [4, 3, 2, 1])
+      iex> context = Ergo.Context.new(&Ergo.Parser.call/1, "", ast: [4, 3, 2, 1])
       iex> assert %Context{ast: [1, 2, 3, 4]} = Context.ast_in_parsed_order(context)
   """
   def ast_in_parsed_order(%Context{ast: ast} = ctx) do
@@ -261,7 +280,7 @@ defmodule Ergo.Context do
   Where an AST has been built from individual characters and needs to be converted to a string
 
   ## Examples
-      iex> context = Ergo.Context.new(&Ergo.Parser.call/2, "", ast: [?H, ?e, ?l, ?l, ?o])
+      iex> context = Ergo.Context.new(&Ergo.Parser.call/1, "", ast: [?H, ?e, ?l, ?l, ?o])
       iex> assert %Context{ast: "Hello"} = Context.ast_to_string(context)
   """
   def ast_to_string(%Context{ast: ast} = ctx) do
@@ -274,15 +293,15 @@ defmodule Ergo.Context do
   ## Examples
 
       iex> alias Ergo.Context
-      iex> context = Context.new(&Ergo.Parser.call/2, "", ast: "Hello World")
+      iex> context = Context.new(&Ergo.Parser.call/1, "", ast: "Hello World")
       iex> assert %Context{ast: "Hello World"} = Context.ast_transform(context, &Function.identity/1)
 
       iex> alias Ergo.Context
-      iex> context = Context.new(&Ergo.Parser.call/2, "", ast: "Hello World")
+      iex> context = Context.new(&Ergo.Parser.call/1, "", ast: "Hello World")
       iex> assert %Context{ast: 11} = Context.ast_transform(context, &String.length/1)
 
       iex> alias Ergo.Context
-      iex> context = Context.new(&Ergo.Parser.call/2, "", ast: "Hello World")
+      iex> context = Context.new(&Ergo.Parser.call/1, "", ast: "Hello World")
       iex> assert %Context{ast: "Hello World"} = Context.ast_transform(context, nil)
   """
   def ast_transform(%Context{ast: ast} = ctx, fun) do
@@ -292,26 +311,9 @@ defmodule Ergo.Context do
     end
   end
 
-  def transform(%Context{} = ctx, tr_fn) when is_function(tr_fn) do
-    tr_fn.(ctx)
-  end
-
-  def trace(%Context{depth: depth, depth_pad: padd, trace: trace} = ctx, true, message) do
-    depth_field = String.pad_leading(to_string(depth), padd, "0")
-    %{ctx | trace: trace ++ ["[#{depth_field}] #{message}"]}
-  end
-
-  def trace(%Context{} = ctx, false, _message) do
-    ctx
-  end
-
-  def trace_match(%Context{status: :ok, ast: ast} = ctx, debug, type, label) do
-    trace(ctx, debug, "#{type} #{label} matched:#{inspect(ast)}")
-  end
-
-  def trace_match(%Context{status: {:error, reason}} = ctx, debug, type, label) do
-    trace(ctx, debug, "#{type} #{label} failed:#{inspect(reason)}")
-  end
+  # def transform(%Context{} = ctx, tr_fn) when is_function(tr_fn) do
+  #   tr_fn.(ctx)
+  # end
 
   def clip(%Context{input: input}, length \\ 40) do
     "\"#{String.trim_trailing(Utils.ellipsize(input, length))}\""

@@ -26,13 +26,12 @@ defmodule Ergo.Numeric do
   """
   def uint(opts \\ []) do
     label = Keyword.get(opts, :label, "uint")
-    debug = Keyword.get(opts, :debug, false)
     parser = digits()
 
     Parser.terminal(
+      :uint,
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "____ UNT #{label} on: #{Context.clip(ctx)}")
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           uint_value = ast |> Enum.join("") |> String.to_integer()
           %{new_ctx | ast: uint_value}
@@ -52,14 +51,12 @@ defmodule Ergo.Numeric do
   """
   def decimal(opts \\ []) do
     label = Keyword.get(opts, :label, "decimal")
-    debug = Keyword.get(opts, :debug, false)
     parser = sequence([digits(), ignore(char(?.)), digits()], label: "ddd.dd")
 
     Parser.terminal(
+      :decimal,
       label,
       fn %Context{} = ctx ->
-        ctx = Context.trace(ctx, debug, "____ DEC #{label} on: #{Context.clip(ctx)}")
-
         with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
           [i_part | [d_part]] = ast
           i_val = i_part |> Enum.join("")

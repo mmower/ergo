@@ -1,6 +1,6 @@
 defmodule Ergo.Parser do
   alias __MODULE__
-  alias Ergo.{Context, ParserRefs, Utils}
+  alias Ergo.{Context, ParserRefs, Telemetry}
 
   require Logger
 
@@ -31,19 +31,27 @@ defmodule Ergo.Parser do
   them in a `Parser` record that can hold arbitrary metadata. The primary use for the metadata is
   the storage of debugging information.
   """
-  defstruct label: "*unknown*",
+  defstruct type: nil,
+            label: "*unknown*",
             combinator: false,
+            children: [],
             parser_fn: nil,
             ref: nil,
-            debug: false,
             err: nil
 
   @doc ~S"""
   Create a new combinator parser with the given label, parsing function, and
   optional metadata.
   """
-  def combinator(label, parser_fn, meta \\ []) when is_binary(label) and is_function(parser_fn) do
-    %Parser{combinator: true, label: label, parser_fn: parser_fn, ref: ParserRefs.next_ref()}
+  def combinator(type, label, parser_fn, meta \\ [])
+      when is_binary(label) and is_function(parser_fn) do
+    %Parser{
+      type: type,
+      combinator: true,
+      label: label,
+      parser_fn: parser_fn,
+      ref: ParserRefs.next_ref()
+    }
     |> Map.merge(Enum.into(meta, %{}))
   end
 
@@ -51,18 +59,17 @@ defmodule Ergo.Parser do
   Create a new terminal parser with the given label, parsing function, and
   optional metadata.
   """
-  def terminal(label, parser_fn, meta \\ []) when is_binary(label) and is_function(parser_fn) do
-    %Parser{combinator: false, label: label, parser_fn: parser_fn, ref: ParserRefs.next_ref()}
+  def terminal(type, label, parser_fn, meta \\ [])
+      when is_binary(label) and is_function(parser_fn) do
+    %Parser{
+      type: type,
+      combinator: false,
+      label: label,
+      parser_fn: parser_fn,
+      ref: ParserRefs.next_ref()
+    }
     |> Map.merge(Enum.into(meta, %{}))
   end
-
-  # @doc ~S"""
-  # `new/2` creates a new `Parser` from the given parsing function and with the specified metadata.
-  # """
-  # def new(label, parser_fn, meta \\ []) when is_binary(label) and is_function(parser_fn) do
-  #   %Parser{label: label, parser_fn: parser_fn, ref: ParserRefs.next_ref()}
-  #   |> Map.merge(Enum.into(meta, %{}))
-  # end
 
   @doc ~S"""
   `invoke/2` is the main entry point for the parsing process. It looks up the parser control function within
@@ -73,28 +80,12 @@ defmodule Ergo.Parser do
   debugging variants of the parsers that could be subject to different behaviours)
   """
 
-  def invoke(%Parser{} = parser, %Context{invoke_fn: invoke_fn, called_from: called_from, parser: caller} = ctx) do
-    if ctx.caller_logging do
-      invoke_fn.(%{ctx | parser: parser, called_from: [caller | called_from]}, parser)
-    else
-      invoke_fn.(%{ctx | parser: parser}, parser)
-    end
-  end
-
-  @doc """
-  The rewrite_error/2 call allows a higher-level parser to rewrite the error returned by a subordinate
-  parser, translating it into something a user is more likely to be able to understand.
-  """
-  def rewrite_error(%Context{status: {:error, _} = status} = ctx, %Parser{err: err}) when is_function(err) do
-    try do
-      %{ctx | status: err.(status)}
-    rescue
-      _e in FunctionClauseError -> ctx
-    end
-  end
-
-  def rewrite_error(ctx, _parser) do
-    ctx
+  def invoke(%Parser{} = parser, %Context{invoke_fn: invoke_fn, parser: invoking_parser} = ctx) do
+    # To ensure that the parser is always right when in it's own parsing_fn
+    # we save the current parser and then restore it afterwards
+    stashed_parser = invoking_parser
+    result_ctx = invoke_fn.(%{ctx | parser: parser})
+    %{result_ctx | parser: stashed_parser}
   end
 
   def enter(%Context{entry_points: entry_points, line: line, col: col} = ctx) do
@@ -106,37 +97,20 @@ defmodule Ergo.Parser do
   end
 
   @doc ~S"""
-  `call/2` invokes the specified parser by calling its parsing function with the specified context having
+  `call/1` invokes the specified parser by calling its parsing function with the specified context having
   first reset the context status.
   """
-  def call(%Context{} = ctx, %Parser{parser_fn: parser_fn} = parser) do
+  def call(%Context{parser: %Parser{parser_fn: parser_fn}} = ctx) do
     ctx
     |> Context.reset_status()
-    |> track_parser(parser)
+    |> track_parser()
     |> enter()
     |> parser_fn.()
     |> leave()
-    |> rewrite_error(parser)
-  end
-
-  def trace_in(%Context{line: line, col: col} = ctx, label, debug) do
-    Context.trace(ctx, debug, "-->> #{label} L#{line}:#{col} on: #{Context.clip(ctx)}")
-  end
-
-  def trace_out(%Context{status: :ok, ast: ast} = ctx, label, debug) do
-    Context.trace(ctx, debug, "  OK #{label} -> #{inspect(ast)}")
-  end
-
-  def trace_out(%Context{status: {:error, [{code, reason} | []]}} = ctx, label, debug) do
-    Context.trace(ctx, debug, " ERR #{label} -> #{inspect(code)}: #{inspect(reason)}")
-  end
-
-  def process(%Context{process: process} = ctx, parser) do
-    %{ctx | process: [process_entry(parser, ctx) | process]}
   end
 
   @doc ~S"""
-  `diagnose/2` invokes the specified parser by calling its parsing function with the specific context while
+  `diagnose/1` invokes the specified parser by calling its parsing function with the specific context while
   tracking the progress of the parser. The progress can be retrieved from the `progress` key of the returned
   context.
 
@@ -144,28 +118,17 @@ defmodule Ergo.Parser do
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Combinators, Terminals}
-      iex> context = Context.new(&Ergo.Parser.diagnose/2, "Hello World")
+      iex> context = Context.new(&Ergo.Parser.diagnose/1, "Hello World")
       iex> parser = many(wc())
       iex> assert %{status: :ok} = Parser.invoke(parser, context)
   """
-  def diagnose(%Context{} = ctx, %Parser{label: label} = parser) do
-    debug = should_debug?(parser, ctx)
-
+  def diagnose(%Context{} = ctx) do
     ctx
-    |> Context.inc_depth()
-    |> trace_in(label, debug)
-    |> Parser.call(parser)
-    |> trace_out(label, debug)
-    |> Context.dec_depth()
-    |> process(parser)
-  end
-
-  defp process_entry(%Parser{label: label, ref: ref}, %Context{status: status, line: line, col: col, input: input}) do
-    {{line, col}, Utils.ellipsize(input, 20), ref, label, status}
-  end
-
-  def should_debug?(%Parser{combinator: combinator, debug: debug}, %Context{debug_override: override}) do
-    combinator || debug || override
+    |> Telemetry.enter()
+    |> Parser.call()
+    |> Telemetry.match()
+    |> Telemetry.error()
+    |> Telemetry.leave()
   end
 
   @doc ~S"""
@@ -176,20 +139,18 @@ defmodule Ergo.Parser do
 
     iex> alias Ergo.{Context, Parser}
     iex> import Ergo.{Terminals, Combinators}
-    iex> context = Context.new(&Ergo.Parser.call/2, "Hello World")
     iex> parser = many(char(?H))
-    iex> context2 = Parser.track_parser(context, parser)
-    iex> assert Context.parser_tracked?(context2, parser.ref)
+    iex> context =
+    ...>  Context.new(&Function.identity/1, "Hello World")
+    ...>  |> Map.put(:parser, parser)
+    ...>  |> Parser.track_parser()
+    iex> assert Context.parser_tracked?(context, parser.ref)
   """
-  def track_parser(
-        %Context{} = ctx,
-        %Parser{ref: ref} = parser
-      ) do
+  def track_parser(%Context{parser: %Parser{ref: ref} = parser} = ctx) do
     if Context.parser_tracked?(ctx, ref) do
       raise Ergo.Parser.CycleError, %{context: ctx, parser: parser}
     else
       Context.track_parser(ctx, ref)
     end
   end
-
 end
