@@ -12,17 +12,17 @@ defmodule Ergo.TelemetryTest do
     end
 
     parser = Combinators.sequence([Terminals.digit(label: "digit-1"), Terminals.digit(label: "digit-2")], label: "two-digits")
-    Ergo.diagnose(parser, "12")
+    %{status: :ok, id: id} = Ergo.diagnose(parser, "12")
 
-    assert [{[:ergo, :enter], %{type: :sequence, label: "two-digits"}},
-            {[:ergo, :enter], %{type: :char_range, label: "digit-1"}},
-            {[:ergo, :match], %{type: :char_range, label: "digit-1", ast: ?1}},
-            {[:ergo, :leave], %{type: :char_range, label: "digit-1"}},
-            {[:ergo, :enter], %{type: :char_range, label: "digit-2"}},
-            {[:ergo, :match], %{type: :char_range, label: "digit-2", ast: ?2}},
-            {[:ergo, :leave], %{type: :char_range, label: "digit-2"}},
-            {[:ergo, :match], %{type: :sequence, label: "two-digits", ast: [49, 50]}},
-            {[:ergo, :leave], %{type: :sequence, label: "two-digits", ast: [49, 50]}}] = TelemetryServer.get_events()
+    assert [%{event: :enter, type: :sequence, label: "two-digits"},
+            %{event: :enter, type: :char_range, label: "digit-1"},
+            %{event: :match, type: :char_range, label: "digit-1", ast: ?1},
+            %{event: :leave, type: :char_range, label: "digit-1"},
+            %{event: :enter, type: :char_range, label: "digit-2"},
+            %{event: :match, type: :char_range, label: "digit-2", ast: ?2},
+            %{event: :leave, type: :char_range, label: "digit-2"},
+            %{event: :match, type: :sequence, label: "two-digits", ast: [49, 50]},
+            %{event: :leave, type: :sequence, label: "two-digits", ast: [49, 50]}] = TelemetryServer.get_events(id)
   end
 
   test "correct choice telemetry received" do
@@ -33,23 +33,23 @@ defmodule Ergo.TelemetryTest do
     end
 
     parser = Combinators.choice([Terminals.alpha(), Terminals.digit()], label: "alpha_or_digit")
-    Ergo.diagnose(parser, "1")
+    %{status: :ok, id: id} = Ergo.diagnose(parser, "1")
 
-    assert [{[:ergo, :enter], %{type: :choice, label: "alpha_or_digit"}},
-            {[:ergo, :enter], %{type: :char_list, label: "alpha"}},
-            {[:ergo, :enter], %{type: :char_range, label: "?(a..z)"}},
-            {[:ergo, :error], %{type: :char_range, label: "?(a..z)"}},
-            {[:ergo, :leave], %{type: :char_range, label: "?(a..z)"}},
-            {[:ergo, :enter], %{type: :char_range, label: "?(A..Z)"}},
-            {[:ergo, :error], %{type: :char_range, label: "?(A..Z)"}},
-            {[:ergo, :leave], %{type: :char_range, label: "?(A..Z)"}},
-            {[:ergo, :error], %{type: :char_list, label: "alpha"}},
-            {[:ergo, :leave], %{type: :char_list, label: "alpha"}},
-            {[:ergo, :enter], %{type: :char_range, label: "digit"}},
-            {[:ergo, :match], %{type: :char_range, label: "digit", ast: ?1}},
-            {[:ergo, :leave], %{type: :char_range, label: "digit", ast: ?1}},
-            {[:ergo, :match], %{type: :choice, label: "alpha_or_digit", ast: ?1}},
-            {[:ergo, :leave], %{type: :choice, label: "alpha_or_digit", ast: ?1}}] = TelemetryServer.get_events()
+    assert [%{event: :enter, type: :choice, label: "alpha_or_digit"},
+            %{event: :enter, type: :char_list, label: "alpha"},
+            %{event: :enter, type: :char_range, label: "?(a..z)"},
+            %{event: :error, type: :char_range, label: "?(a..z)"},
+            %{event: :leave, type: :char_range, label: "?(a..z)"},
+            %{event: :enter, type: :char_range, label: "?(A..Z)"},
+            %{event: :error, type: :char_range, label: "?(A..Z)"},
+            %{event: :leave, type: :char_range, label: "?(A..Z)"},
+            %{event: :error, type: :char_list, label: "alpha"},
+            %{event: :leave, type: :char_list, label: "alpha"},
+            %{event: :enter, type: :char_range, label: "digit"},
+            %{event: :match, type: :char_range, label: "digit", ast: ?1},
+            %{event: :leave, type: :char_range, label: "digit", ast: ?1},
+            %{event: :match, type: :choice, label: "alpha_or_digit", ast: ?1},
+            %{event: :leave, type: :choice, label: "alpha_or_digit", ast: ?1}] = TelemetryServer.get_events(id)
   end
 
 end

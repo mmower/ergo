@@ -13,8 +13,6 @@ defmodule Ergo do
 
   """
   def start(_type, _args) do
-    # Telemetry is disabled by default. Start the Ergo.Telemetry application
-    # to generate telemetry metadata
     Supervisor.start_link([Ergo.ParserRefs], strategy: :one_for_one)
   end
 

@@ -16,9 +16,9 @@ defmodule Ergo.Telemetry do
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :enter], %{system_time: System.system_time()}, %{
+      id: id,
       event: :enter,
       depth: depth,
-      id: id,
       type: :many,
       created_at: created_at,
       ref: ref,
@@ -45,9 +45,9 @@ defmodule Ergo.Telemetry do
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :enter], %{system_time: System.system_time()}, %{
+      id: id,
       event: :enter,
       depth: depth,
-      id: id,
       created_at: created_at,
       ref: ref,
       type: type,
@@ -72,9 +72,9 @@ defmodule Ergo.Telemetry do
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :enter], %{system_time: System.system_time()}, %{
+      id: id,
       event: :enter,
       depth: depth,
-      id: id,
       created_at: created_at,
       ref: ref,
       type: type,
@@ -99,9 +99,9 @@ defmodule Ergo.Telemetry do
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :leave], %{system_time: System.system_time()}, %{
+      id: id,
       event: :leave,
       depth: depth,
-      id: id,
       created_at: created_at,
       ref: ref,
       type: type,
@@ -126,9 +126,9 @@ defmodule Ergo.Telemetry do
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :match], %{system_time: System.system_time()}, %{
+      id: id,
       event: :match,
       depth: depth,
-      id: id,
       created_at: created_at,
       ref: ref,
       type: type,
@@ -155,9 +155,9 @@ defmodule Ergo.Telemetry do
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :error], %{system_time: System.system_time()}, %{
+      id: id,
       event: :error,
       depth: depth,
-      id: id,
       created_at: created_at,
       ref: ref,
       type: type,
@@ -184,10 +184,10 @@ defmodule Ergo.Telemetry do
   } = ctx, event, details \\ %{}) do
     metadata =
       %{
+        id: id,
         event: :event,
         user_event: event,
         depth: depth,
-        id: id,
         created_at: created_at,
         ref: ref,
         type: type,

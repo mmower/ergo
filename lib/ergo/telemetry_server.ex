@@ -4,15 +4,15 @@ defmodule Ergo.TelemetryServer do
   @name :ergo_telemetry_server
 
   defmodule State do
-    defstruct events: []
+    defstruct runs: %{}
   end
 
   def init(args) do
     {:ok, args}
   end
 
-  def get_events() do
-    GenServer.call(@name, :get_events)
+  def get_events(id) do
+    GenServer.call(@name, {:get_events, id})
   end
 
   def reset() do
@@ -42,16 +42,23 @@ defmodule Ergo.TelemetryServer do
     GenServer.cast(@name, {:log, evt, metadata})
   end
 
-  def handle_cast({:log, evt, metadata}, %State{events: events} = state) do
-    new_state = %{state | events: events ++ [{evt, metadata}]}
-    {:noreply, new_state}
+  def handle_cast({:log, _evt, %{id: id} = metadata}, %State{runs: runs} = state) do
+    events =
+      Map.get(runs, id, [])
+      |> List.insert_at(0, metadata)
+
+    {:noreply, %{state | runs: Map.put(runs, id, events)}}
   end
 
   def handle_cast(:reset, _state) do
     {:noreply, %State{}}
   end
 
-  def handle_call(:get_events, _from, %State{events: events} = state) do
+  def handle_call({:get_events, id}, _from, %State{runs: runs} = state) do
+    events =
+      Map.get(runs, id, [])
+      |> Enum.reverse()
+
     {:reply, events, state}
   end
 
