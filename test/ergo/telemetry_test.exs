@@ -12,7 +12,7 @@ defmodule Ergo.TelemetryTest do
     end
 
     parser = Combinators.sequence([Terminals.digit(label: "digit-1"), Terminals.digit(label: "digit-2")], label: "two-digits")
-    %{status: :ok, id: id} = Ergo.diagnose(parser, "12")
+    %{status: :ok, id: id} = Ergo.parse(parser, "12")
 
     assert [%{event: :enter, type: :sequence, label: "two-digits"},
             %{event: :enter, type: :char_range, label: "digit-1"},
@@ -33,7 +33,7 @@ defmodule Ergo.TelemetryTest do
     end
 
     parser = Combinators.choice([Terminals.alpha(), Terminals.digit()], label: "alpha_or_digit")
-    %{status: :ok, id: id} = Ergo.diagnose(parser, "1")
+    %{status: :ok, id: id} = Ergo.parse(parser, "1")
 
     assert [%{event: :enter, type: :choice, label: "alpha_or_digit"},
             %{event: :enter, type: :char_list, label: "alpha"},

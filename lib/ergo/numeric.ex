@@ -32,7 +32,7 @@ defmodule Ergo.Numeric do
       :uint,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(ctx, parser) do
           uint_value = ast |> Enum.join("") |> String.to_integer()
           %{new_ctx | ast: uint_value}
         end
@@ -57,7 +57,7 @@ defmodule Ergo.Numeric do
       :decimal,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok, ast: ast} = new_ctx <- Parser.invoke(ctx, parser) do
           [i_part | [d_part]] = ast
           i_val = i_part |> Enum.join("")
           d_val = d_part |> Enum.join("")

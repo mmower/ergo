@@ -80,55 +80,28 @@ defmodule Ergo.Parser do
   debugging variants of the parsers that could be subject to different behaviours)
   """
 
-  def invoke(%Parser{} = parser, %Context{invoke_fn: invoke_fn, parser: invoking_parser} = ctx) do
-    # To ensure that the parser is always right when in it's own parsing_fn
-    # we save the current parser and then restore it afterwards
+  def invoke(%Context{parser: invoking_parser} = ctx, %Parser{parser_fn: parser_fn} = parser) do
     stashed_parser = invoking_parser
-    result_ctx = invoke_fn.(%{ctx | parser: parser})
-    %{result_ctx | parser: stashed_parser}
+
+    ctx
+    |> Context.set_parser(parser)
+    |> Telemetry.enter()
+    |> Context.reset_status()
+    |> track_parser()
+    |> push_entry_point()
+    |> parser_fn.()
+    |> pop_entry_point()
+    |> Telemetry.result()
+    |> Telemetry.leave()
+    |> Context.set_parser(stashed_parser)
   end
 
-  def enter(%Context{entry_points: entry_points, line: line, col: col} = ctx) do
+  def push_entry_point(%Context{entry_points: entry_points, line: line, col: col} = ctx) do
     %{ctx | entry_points: [{line, col} | entry_points]}
   end
 
-  def leave(%Context{entry_points: [_ | entry_points]} = ctx) do
+  def pop_entry_point(%Context{entry_points: [_ | entry_points]} = ctx) do
     %{ctx | entry_points: entry_points}
-  end
-
-  @doc ~S"""
-  `call/1` invokes the specified parser by calling its parsing function with the specified context having
-  first reset the context status.
-  """
-  def call(%Context{parser: %Parser{parser_fn: parser_fn}} = ctx) do
-    ctx
-    |> Context.reset_status()
-    |> track_parser()
-    |> enter()
-    |> parser_fn.()
-    |> leave()
-  end
-
-  @doc ~S"""
-  `diagnose/1` invokes the specified parser by calling its parsing function with the specific context while
-  tracking the progress of the parser. The progress can be retrieved from the `progress` key of the returned
-  context.
-
-  ## Examples
-
-      iex> alias Ergo.{Context, Parser}
-      iex> import Ergo.{Combinators, Terminals}
-      iex> context = Context.new(&Ergo.Parser.diagnose/1, "Hello World")
-      iex> parser = many(wc())
-      iex> assert %{status: :ok} = Parser.invoke(parser, context)
-  """
-  def diagnose(%Context{} = ctx) do
-    ctx
-    |> Telemetry.enter()
-    |> Parser.call()
-    |> Telemetry.match()
-    |> Telemetry.error()
-    |> Telemetry.leave()
   end
 
   @doc ~S"""
@@ -141,7 +114,7 @@ defmodule Ergo.Parser do
     iex> import Ergo.{Terminals, Combinators}
     iex> parser = many(char(?H))
     iex> context =
-    ...>  Context.new(&Function.identity/1, "Hello World")
+    ...>  Context.new("Hello World")
     ...>  |> Map.put(:parser, parser)
     ...>  |> Parser.track_parser()
     iex> assert Context.parser_tracked?(context, parser.ref)

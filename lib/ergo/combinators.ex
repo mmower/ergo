@@ -124,7 +124,7 @@ defmodule Ergo.Combinators do
       parsers,
       Context.add_error(ctx, :no_valid_choice, "#{label} cannot be applied"),
       fn %Parser{} = parser, %Context{} = ctx ->
-        case Parser.invoke(parser, ctx) do
+        case Parser.invoke(ctx, parser) do
           %Context{status: :ok} = new_ctx ->
             # Telemetry.match(new_ctx)
             {:halt, new_ctx}
@@ -215,7 +215,7 @@ defmodule Ergo.Combinators do
 
   defp sequence_reduce(parsers, %Context{} = ctx) when is_list(parsers) do
     Enum.reduce_while(parsers, %{ctx | ast: []}, fn parser, ctx ->
-      case Parser.invoke(parser, ctx) do
+      case Parser.invoke(ctx, parser) do
         %Context{status: :ok} = new_ctx ->
           {:cont, seq_pass(new_ctx, ctx)}
         err_ctx ->
@@ -250,7 +250,7 @@ defmodule Ergo.Combinators do
       :hoist,
       "hoist",
       fn ctx ->
-        with %Context{status: :ok} = ok_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok} = ok_ctx <- Parser.invoke(ctx, parser) do
           ok_ctx
           |> Context.ast_transform(fn ast -> List.first(ast) end)
           # |> Telemetry.match()
@@ -329,14 +329,14 @@ defmodule Ergo.Combinators do
   def parse_many(%Parser{} = parser, %Context{} = ctx, min, max, count)
       when is_integer(min) and min >= 0 and ((is_integer(max) and max > min) or max == :infinity) and
              is_integer(count) do
-    case Parser.invoke(parser, ctx) do
+    case Parser.invoke(ctx, parser) do
       %Context{status: {:error, _}} = err_ctx ->
-        Telemetry.error(err_ctx)
+        Telemetry.result(err_ctx)
 
         if count < min do
           ctx
           |> Context.add_error(:many_less_than_min, "#{count} < #{min}")
-          |> Telemetry.error()
+          |> Telemetry.result()
         else
           # We're returning ctx which must have status: :ok, not "new_ctx" which
           # will have status: {:error, _} this is the normal bail out
@@ -360,15 +360,15 @@ defmodule Ergo.Combinators do
 
       iex> alias Ergo.Context
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Ergo.parse(optional(literal("Hello")), "Hello World")
-      iex> assert %Context{status: :ok, ast: "Hello", input: " World", index: 5, col: 6} = context
+      iex> ctx = Ergo.parse(optional(literal("Hello")), "Hello World")
+      iex> assert %Context{status: :ok, ast: "Hello", input: " World", index: 5, col: 6} = ctx
 
       In this example we deliberately ensure that the Context ast is not nil
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Terminals, Combinators}
-      iex> context = Context.new(&Ergo.Parser.call/1, " World", ast: [])
+      iex> ctx = Context.new(" World", ast: [])
       iex> parser = optional(literal("Hello"))
-      iex> new_context = Parser.invoke(parser, context)
+      iex> new_context = Parser.invoke(ctx, parser)
       iex> assert %Context{status: :ok, ast: nil, input: " World", index: 0, col: 1} = new_context
   """
   def optional(%Parser{} = parser, opts \\ []) do
@@ -379,14 +379,13 @@ defmodule Ergo.Combinators do
       :optional,
       label,
       fn %Context{} = ctx ->
-        case Parser.invoke(parser, ctx) do
+        case Parser.invoke(ctx, parser) do
           %Context{status: :ok} = match_ctx ->
             match_ctx
             |> map_fn.()
-            # |> Telemetry.match()
 
           %Context{status: {:error, _}} = err_ctx ->
-            Telemetry.error(err_ctx)
+            Telemetry.result(err_ctx)
 
             ctx
             |> Context.reset_status()
@@ -415,7 +414,7 @@ defmodule Ergo.Combinators do
       :ignore,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok} = new_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok} = new_ctx <- Parser.invoke(ctx, parser) do
           %{new_ctx | ast: nil}
         end
       end,
@@ -439,7 +438,7 @@ defmodule Ergo.Combinators do
       :string_transform,
       "string<#{parser.label}>",
       fn ctx ->
-        with %Context{status: :ok} = match_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
           |> Context.ast_transform(fn ast -> List.to_string(ast) end)
           # |> Telemetry.match()
@@ -466,7 +465,7 @@ defmodule Ergo.Combinators do
       :atom_transform,
       "atom<#{parser.label}>",
       fn ctx ->
-        with %Context{status: :ok} = match_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
           |> Context.ast_transform(fn ast -> String.to_atom(ast) end)
           # |> Telemetry.match()
@@ -498,7 +497,7 @@ defmodule Ergo.Combinators do
       :transform,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok} = match_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
           |> Context.ast_transform(transformer_fn)
           # |> Telemetry.match()
@@ -529,7 +528,7 @@ defmodule Ergo.Combinators do
       label,
       fn %Context{} = ctx ->
         Telemetry.enter(ctx)
-        with %Context{status: :ok} = match_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
           |> Context.ast_transform(fn _ast -> replacement_value end)
           # |> Telemetry.match()
@@ -562,7 +561,7 @@ defmodule Ergo.Combinators do
       :lookahead,
       label,
       fn %Context{} = ctx ->
-        case Parser.invoke(parser, ctx) do
+        case Parser.invoke(ctx, parser) do
           %Context{status: :ok} ->
             ctx
             |> Context.reset_status()
@@ -608,18 +607,16 @@ defmodule Ergo.Combinators do
       :not_lookahead,
       label,
       fn %Context{} = ctx ->
-        case Parser.invoke(parser, ctx) do
+        case Parser.invoke(ctx, parser) do
           %Context{status: {:error, _}} = err_ctx ->
-            Telemetry.error(err_ctx)
+            Telemetry.result(err_ctx)
 
             ctx
             |> Context.reset_status()
-            # |> Telemetry.match()
 
-            %Context{status: :ok} = ok_ctx ->
-              ok_ctx
-              |> Context.add_error(:lookahead_fail, "Satisfied: #{parser.label}")
-              # |> Telemetry.error()
+          %Context{status: :ok} = ok_ctx ->
+            ok_ctx
+            |> Context.add_error(:lookahead_fail, "Satisfied: #{parser.label}")
 
           # %Context{status: {:error, _}} -> %{ctx | status: :ok}
           # %Context{} -> Context.add_error(ctx, :lookahead_fail, "Satisfied: #{parser.label}")
@@ -642,7 +639,7 @@ defmodule Ergo.Combinators do
       iex> assert %Context{status: :ok, ast: ?4} = Ergo.parse(parser, "4")
       iex> assert %Context{status: {:error, [{:unsatisfied, {1, 1}, "Failed to satisfy: digit char"}]}} = Ergo.parse(parser, "!")
       iex> parser = satisfy(number(), fn n -> Integer.mod(n, 2) == 0 end, label: "even number")
-      iex> assert %Context{status: :ok, ast: 42} = Ergo.diagnose(parser, "42")
+      iex> assert %Context{status: :ok, ast: 42} = Ergo.parse(parser, "42")
       iex> assert %Context{status: {:error, [{:unsatisfied, {1, 1}, "Failed to satisfy: even number"}]}} = Ergo.parse(parser, "27")
   """
   def satisfy(%Parser{} = parser, pred_fn, opts \\ []) when is_function(pred_fn) do
@@ -652,7 +649,7 @@ defmodule Ergo.Combinators do
       :satisfy,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok, ast: ast} = ok_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: :ok, ast: ast} = ok_ctx <- Parser.invoke(ctx, parser) do
           if pred_fn.(ast) do
             ok_ctx
             # |> Telemetry.match()
@@ -678,7 +675,7 @@ defmodule Ergo.Combinators do
         :lazy,
         "lazy",
         fn ctx ->
-          Parser.invoke(unquote(parser), ctx)
+          Parser.invoke(ctx, unquote(parser))
         end
       )
     end

@@ -65,7 +65,7 @@ defmodule Ergo.Meta do
           label,
           fn %Context{} = ctx ->
             before_fn.(ctx)
-            Parser.invoke(parser, ctx)
+            Parser.invoke(ctx, parser)
           end,
           children: [parser]
         )
@@ -76,7 +76,7 @@ defmodule Ergo.Meta do
           :after,
           label,
           fn %Context{} = ctx ->
-            new_ctx = Parser.invoke(parser, ctx)
+            new_ctx = Parser.invoke(ctx, parser)
             after_fn.(ctx, new_ctx)
             new_ctx
           end,
@@ -90,7 +90,7 @@ defmodule Ergo.Meta do
           label,
           fn %Context{} = ctx ->
             before_fn.(ctx)
-            new_ctx = Parser.invoke(parser, ctx)
+            new_ctx = Parser.invoke(ctx, parser)
             after_fn.(ctx, new_ctx)
             new_ctx
           end,
@@ -124,7 +124,7 @@ defmodule Ergo.Meta do
       :failed,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: {:error, _}} = new_ctx <- Parser.invoke(parser, ctx) do
+        with %Context{status: {:error, _}} = new_ctx <- Parser.invoke(ctx, parser) do
           fail_fn.(ctx, new_ctx, parser)
           new_ctx
         end

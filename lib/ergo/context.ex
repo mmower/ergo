@@ -75,7 +75,6 @@ defmodule Ergo.Context do
 
   defstruct id: nil,
             created_at: nil,
-            invoke_fn: nil,
             status: :ok,
             serial: 0,
             input: "",
@@ -95,10 +94,9 @@ defmodule Ergo.Context do
 
   ## Examples:
     iex> alias Ergo.Context
-    iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %MapSet{}} = Context.new(&Ergo.Parser.call/1, "Hello World")
+    iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %MapSet{}} = Context.new("Hello World")
   """
-  def new(invoke_fn, input \\ "", options \\ [])
-      when is_function(invoke_fn) and is_binary(input) do
+  def new(input \\ "", options \\ []) when is_binary(input) do
     id = Keyword.get(options, :id, make_ref())
     ast = Keyword.get(options, :ast, nil)
     data = Keyword.get(options, :data, %{})
@@ -108,7 +106,6 @@ defmodule Ergo.Context do
     %Context{
       id: id,
       created_at: creation_time,
-      invoke_fn: invoke_fn,
       input: input,
       ast: ast,
       data: data
@@ -120,7 +117,7 @@ defmodule Ergo.Context do
 
   ## Examples
 
-      iex> context = Context.new(&Ergo.Parser.call/1, "Hello World")
+      iex> context = Context.new("Hello World")
       iex> context = %{context | status: {:error, [{:inexplicable_error, "What the…"}]}, ast: true}
       iex> context = Context.reset_status(context)
       iex> assert %Context{status: :ok, ast: nil} = context
@@ -129,18 +126,22 @@ defmodule Ergo.Context do
     %{ctx | status: :ok, ast: nil}
   end
 
+  def set_parser(%Context{} = ctx, parser) do
+    %{ctx | parser: parser}
+  end
+
   @doc """
   ## Examples
       iex> alias Ergo.Context
       iex> context =
-      ...>  Context.new(&Ergo.Parser.call/1, "Hello World")
+      ...>  Context.new("Hello World")
       ...>  |> Context.add_error(:unexpected_char, "Expected 'e' got '.'")
       iex> assert is_nil(context.ast)
       iex> assert {:error, [{:unexpected_char, {1, 1}, "Expected 'e' got '.'"}]} = context.status
 
       iex> alias Ergo.Context
       iex> context =
-      ...>  Context.new(&Ergo.Parser.call/1, "Hello World")
+      ...>  Context.new("Hello World")
       ...>  |> Context.add_error(:unexpected_char, "Expected 'e' got '.'")
       ...>  |> Context.add_error(:literal_failed, "Expected 'end'")
       iex> assert is_nil(context.ast)
@@ -165,7 +166,7 @@ defmodule Ergo.Context do
 
     iex> alias Ergo.Context
     iex> parser_ref = 123
-    iex> context = Context.new(&Ergo.Parser.call/1, "Hello World") |> Context.track_parser(parser_ref)
+    iex> context = Context.new("Hello World") |> Context.track_parser(parser_ref)
     iex> assert Context.parser_tracked?(context, parser_ref)
   """
   def parser_tracked?(%Context{tracks: tracks, index: index}, ref) when is_integer(ref) do
@@ -179,7 +180,7 @@ defmodule Ergo.Context do
 
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
-      iex> context = Context.new(&Ergo.Parser.call/1, "Hello World")
+      iex> context = Context.new("Hello World")
       iex> parser = literal("Hello")
       iex> context2 = Context.track_parser(context, parser.ref)
       iex> assert MapSet.member?(context2.tracks, {parser.ref, 0})
@@ -197,10 +198,10 @@ defmodule Ergo.Context do
 
   ## Examples
 
-    iex> context = Context.next_char(Context.new(&Ergo.Parser.call/1, ""))
+    iex> context = Context.next_char(Context.new(""))
     iex> assert %Context{status: {:error, [{:unexpected_eoi, {1, 1}, "Unexpected end of input"}] }} = context
 
-    iex> context = Context.next_char(Context.new(&Ergo.Parser.call/1, "Hello World"))
+    iex> context = Context.next_char(Context.new("Hello World"))
     iex> assert %Context{status: :ok, input: "ello World", ast: ?H, index: 1, line: 1, col: 2} = context
   """
   def next_char(context)
@@ -241,10 +242,10 @@ defmodule Ergo.Context do
 
   @doc """
   ## Examples
-      iex> context = Context.new(&Ergo.Parser.call/1, "Hello")
+      iex> context = Context.new("Hello")
       iex> assert %Context{status: :ok, ast: ?H, input: "ello", index: 1, line: 1, col: 2} = Context.peek(context)
 
-      iex> context = Context.new(&Ergo.Parser.call/1, "")
+      iex> context = Context.new("")
       iex> assert %Context{status: {:error, [{:unexpected_eoi, {1, 1}, "Unexpected end of input"}]}, index: 0, line: 1, col: 1} = Context.peek(context)
   """
   def peek(%Context{} = ctx) do
@@ -258,7 +259,7 @@ defmodule Ergo.Context do
   Call this function to remove them
 
   ## Examples
-      iex> context = Ergo.Context.new(&Ergo.Parser.call/1, "", ast: ["Hello", nil, "World", nil])
+      iex> context = Ergo.Context.new("", ast: ["Hello", nil, "World", nil])
       iex> assert %Context{ast: ["Hello", "World"]} = Context.ast_without_ignored(context)
   """
   def ast_without_ignored(%Context{ast: ast} = ctx) do
@@ -270,7 +271,7 @@ defmodule Ergo.Context do
   to in-parse-order
 
   ## Examples
-      iex> context = Ergo.Context.new(&Ergo.Parser.call/1, "", ast: [4, 3, 2, 1])
+      iex> context = Ergo.Context.new("", ast: [4, 3, 2, 1])
       iex> assert %Context{ast: [1, 2, 3, 4]} = Context.ast_in_parsed_order(context)
   """
   def ast_in_parsed_order(%Context{ast: ast} = ctx) do
@@ -281,7 +282,7 @@ defmodule Ergo.Context do
   Where an AST has been built from individual characters and needs to be converted to a string
 
   ## Examples
-      iex> context = Ergo.Context.new(&Ergo.Parser.call/1, "", ast: [?H, ?e, ?l, ?l, ?o])
+      iex> context = Ergo.Context.new("", ast: [?H, ?e, ?l, ?l, ?o])
       iex> assert %Context{ast: "Hello"} = Context.ast_to_string(context)
   """
   def ast_to_string(%Context{ast: ast} = ctx) do
@@ -294,15 +295,15 @@ defmodule Ergo.Context do
   ## Examples
 
       iex> alias Ergo.Context
-      iex> context = Context.new(&Ergo.Parser.call/1, "", ast: "Hello World")
+      iex> context = Context.new("", ast: "Hello World")
       iex> assert %Context{ast: "Hello World"} = Context.ast_transform(context, &Function.identity/1)
 
       iex> alias Ergo.Context
-      iex> context = Context.new(&Ergo.Parser.call/1, "", ast: "Hello World")
+      iex> context = Context.new("", ast: "Hello World")
       iex> assert %Context{ast: 11} = Context.ast_transform(context, &String.length/1)
 
       iex> alias Ergo.Context
-      iex> context = Context.new(&Ergo.Parser.call/1, "", ast: "Hello World")
+      iex> context = Context.new("", ast: "Hello World")
       iex> assert %Context{ast: "Hello World"} = Context.ast_transform(context, nil)
   """
   def ast_transform(%Context{ast: ast} = ctx, fun) do

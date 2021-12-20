@@ -115,7 +115,7 @@ defmodule Ergo.Telemetry do
     %{ctx | depth: depth - 1}
   end
 
-  def match(%Context{
+  def result(%Context{
         status: :ok,
         id: id,
         created_at: created_at,
@@ -141,11 +141,7 @@ defmodule Ergo.Telemetry do
     ctx
   end
 
-  def match(%Context{status: {:error, _}} = ctx) do
-    ctx
-  end
-
-  def error(%Context{
+  def result(%Context{
         id: id,
         created_at: created_at,
         parser: %{type: type, ref: ref, label: label},

@@ -17,13 +17,13 @@ defmodule Ergo.Terminals do
   ## Examples
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
-      iex> context = Context.new(&Ergo.Parser.call/1, "")
-      iex> assert %Context{status: :ok, ast: nil} = Parser.invoke(eoi(), context)
+      iex> ctx = Context.new("")
+      iex> assert %Context{status: :ok, ast: nil} = Parser.invoke(ctx, eoi())
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
-      iex> context = Context.new(&Ergo.Parser.call/1, "Hello World")
-      iex> assert %Context{status: {:error, [{:not_eoi, {1, 1}, "Input not empty: Hello World"}]}, input: "Hello World"} = Parser.invoke(eoi(), context)
+      iex> ctx = Context.new("Hello World")
+      iex> assert %Context{status: {:error, [{:not_eoi, {1, 1}, "Input not empty: Hello World"}]}, input: "Hello World"} = Parser.invoke(ctx, eoi())
   """
   def eoi() do
     Parser.terminal(
@@ -195,7 +195,7 @@ defmodule Ergo.Terminals do
           err_ctx = Context.add_error(ctx, :unexpected_char, "Expected: #{describe_char_match(l)} Actual: #{char_to_string(peek_ctx.ast)}")
 
           Enum.reduce_while(l, err_ctx, fn matcher, err_ctx ->
-            case Parser.invoke(char(matcher), ctx) do
+            case Parser.invoke(ctx, char(matcher)) do
               %Context{status: :ok} = new_ctx -> {:halt, new_ctx}
               _no_match -> {:cont, err_ctx}
             end
@@ -278,9 +278,9 @@ defmodule Ergo.Terminals do
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
-      iex> context = Context.new(&Ergo.Parser.call/1, "")
+      iex> ctx = Context.new("")
       iex> parser = digit()
-      iex> assert %Context{status: {:error, [{:unexpected_eoi, {1, 1}, "Unexpected end of input"}]}, input: "", index: 0, line: 1, col: 1} = Parser.invoke(parser, context)
+      iex> assert %Context{status: {:error, [{:unexpected_eoi, {1, 1}, "Unexpected end of input"}]}, input: "", index: 0, line: 1, col: 1} = Parser.invoke(ctx, parser)
   """
   def digit(options \\ []) do
     label = Keyword.get(options, :label, "digit")
@@ -410,7 +410,7 @@ defmodule Ergo.Terminals do
 
   defp literal_reduce(chars, ctx) do
     Enum.reduce_while(chars, ctx, fn c, ctx ->
-      case Parser.invoke(char(c), ctx) do
+      case Parser.invoke(ctx, char(c)) do
         %Context{status: :ok} = new_ctx ->
           {:cont, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}}
 
