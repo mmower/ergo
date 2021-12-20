@@ -99,13 +99,14 @@ defmodule Ergo.Context do
   """
   def new(invoke_fn, input \\ "", options \\ [])
       when is_function(invoke_fn) and is_binary(input) do
+    id = Keyword.get(options, :id, make_ref())
     ast = Keyword.get(options, :ast, nil)
     data = Keyword.get(options, :data, %{})
 
     {:ok, creation_time} = DateTime.now("Etc/UTC")
 
     %Context{
-      id: make_ref(),
+      id: id,
       created_at: creation_time,
       invoke_fn: invoke_fn,
       input: input,

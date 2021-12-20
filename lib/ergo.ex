@@ -29,14 +29,12 @@ defmodule Ergo do
       iex> assert %Ergo.Context{status: :ok, ast: "Hello", input: " World", index: 5, line: 1, col: 6} = Ergo.parse(parser, "Hello World")
   """
   def parse(%Parser{} = parser, input, opts \\ []) when is_binary(input) do
-    data = Keyword.get(opts, :data, %{})
-    ctx = Context.new(&Parser.call/1, input, data: data)
+    ctx = Context.new(&Parser.call/1, input, opts)
     Parser.invoke(parser, ctx)
   end
 
   def diagnose(%Parser{} = parser, input, opts \\ []) when is_binary(input) do
-    data = Keyword.get(opts, :data, %{})
-    ctx = Context.new(&Parser.diagnose/1, input, data: data)
+    ctx = Context.new(&Parser.diagnose/1, input, opts)
     Parser.invoke(parser, ctx)
   end
 end
