@@ -1,5 +1,5 @@
 defmodule Ergo.Telemetry do
-  alias Ergo.{Context, Parser, TelemetryServer}
+  alias Ergo.{Context, Parser}
   import Ergo.Utils
 
   defdelegate get_events(id), to: Ergo.TelemetryServer

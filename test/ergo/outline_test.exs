@@ -48,25 +48,21 @@ defmodule Ergo.OutlineTest do
     assert Z.end?(n10)
   end
 
-  @tag shouldexec: true
-  @seq "48"
   test "turns events into OPML outline" do
     Telemetry.start()
     parser = Combinators.sequence([Terminals.digit(), Terminals.digit()])
-    %{status: :ok, id: id} = Ergo.parse(parser, @seq)
+    %{status: :ok, id: id} = Ergo.parse(parser, "42")
     events = Telemetry.get_events(id)
 
-    tree =
+    outline =
       events
       |> Ergo.Outline.Builder.build_from_events()
-      |> IO.inspect()
       |> Ergo.Outline.Builder.walk(&Ergo.Outline.OPML.generate_node/2)
-      # |> Ergo.Outline.Builder.walk(fn %{depth: depth, label: label, event: event}, c -> {depth, event, label, c} end)
 
-    # assert [] = tree
-    outline = Ergo.Outline.OPML.generate_opml(@seq, events)
-    File.write!("#{@seq}.opml", outline)
-
-    # assert "" = outline
+    assert [
+      ["", "<outline event=\"enter\" line=\"1:1\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"", "42", "\">\n"],
+      [[["  ", "<outline event=\"enter\" line=\"1:1\" parser=\"char_range\" label=\"digit\" text=\"", "42", "\">\n"], [["    ", "<outline event=\"match\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"", "2", "\" />\n"], ["    ", "<outline event=\"leave\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"", "2", "\" />\n"]], ["  ", "</outline>\n"]], [["  ", "<outline event=\"enter\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"", "2", "\">\n"], [["    ", "<outline event=\"match\" line=\"1:3\" parser=\"char_range\" label=\"digit\" text=\"", "", "\" />\n"], ["    ", "<outline event=\"leave\" line=\"1:3\" parser=\"char_range\" label=\"digit\" text=\"", "", "\" />\n"]], ["  ", "</outline>\n"]], ["  ", "<outline event=\"match\" line=\"1:3\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"", "", "\" />\n"], ["  ", "<outline event=\"leave\" line=\"1:3\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"", "", "\" />\n"]],
+      ["", "</outline>\n"]
+    ] = outline
   end
 end

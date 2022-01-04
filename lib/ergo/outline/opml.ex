@@ -12,8 +12,11 @@ defmodule Ergo.Outline.OPML do
   end
 
   def generate_node(%{event: type, type: parser, label: label, line: line, col: col, depth: depth} = event, :open) do
-    input = Map.get(event, :input, "")
-    [String.duplicate("  ", depth), "<outline event=\"#{to_string(type)}\" line=\"#{line}:#{col}\" parser=\"#{to_string(parser)}\" label=\"#{to_xml_attr_value(label)}\" text=\"", to_xml_attr_value(input), "\">\n"]
+    text = case type do
+      :event -> event.user_event
+      _ -> Map.get(event, :input, "")
+    end
+    [String.duplicate("  ", depth), "<outline event=\"#{to_string(type)}\" line=\"#{line}:#{col}\" parser=\"#{to_string(parser)}\" label=\"#{to_xml_attr_value(label)}\" text=\"", to_xml_attr_value(text), "\">\n"]
   end
 
   def generate_node(%{depth: depth}, :close) do
@@ -21,8 +24,11 @@ defmodule Ergo.Outline.OPML do
   end
 
   def generate_node(%{event: type, type: parser, label: label, line: line, col: col, depth: depth} = event, :closed) do
-    input = Map.get(event, :input, "")
-    [String.duplicate("  ", depth), "<outline event=\"#{to_string(type)}\" line=\"#{line}:#{col}\" parser=\"#{to_string(parser)}\" label=\"#{to_xml_attr_value(label)}\" text=\"", to_xml_attr_value(input), "\" />\n"]
+    text = case type do
+      :event -> event.user_event
+      _ -> Map.get(event, :input, "")
+    end
+    [String.duplicate("  ", depth), "<outline event=\"#{to_string(type)}\" line=\"#{line}:#{col}\" parser=\"#{to_string(parser)}\" label=\"#{to_xml_attr_value(label)}\" text=\"", to_xml_attr_value(text), "\" />\n"]
   end
 
   def to_xml_attr_value(message) do
