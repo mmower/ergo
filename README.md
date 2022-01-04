@@ -5,7 +5,7 @@
 <!-- MDOC !-->
 Elixir Parser Combinators
 Author: Matt Mower <matt@theartofnavigation.co.uk>
-Version: 0.3.5
+Version: 0.9.1
 
 ## Getting Help
 
@@ -15,10 +15,7 @@ If you decide to use Ergo and you want help please come find me in the [Elixir D
 
 Ergo is an Elixir language parser combinator library. The name 'ergo' means 'therefore' means 'for that reason' which seemed appropriate for a parser.
 
-
 Also note that this is the second attempt I've made at building such a library. The first, Epic, was not completed and, on reflection, not good maintanable code. I did, however, learn a great deal in building it and that learning has put Ergo on a much firmer footing.
-
-
 
 # Using Ergo
 
@@ -26,7 +23,7 @@ Also note that this is the second attempt I've made at building such a library. 
 
 Add Ergo to your mix.exs file:
 
-    {:ergo, "~> 0.2"}
+    {:ergo, "~> 0.9"}
 
 Then run
 
@@ -34,8 +31,7 @@ Then run
 
 ## A Basic Parser
 
-
-
+See the [guide](basic_parser.md) to parsing.
 
 ## What is a parser?
 
@@ -81,15 +77,11 @@ At the heart of Ergo is the `Context` record. All Ergo parser functions take and
     col
     char
     ast
-    debug
 
 ### status
 
-Every parser sets its status to either `:ok` or a tuple whose first element is the atom `:error` and whose second element is an atom describing the error, for example: `{:error, :unexpected_char}`
-
-### message
-
-When a parser is returning the status `{:error, _}` it can set the message to a user-friendly description of the error.
+Every parser sets its status to either `:ok` or a tuple whose first element is the atom `:error` and whose second element is a list of `{code, message}` tuples
+describing the error in more detail for example `{:error, [{:unexpected_char, "Expected 'A' but found '1'}]}`.
 
 ### input
 

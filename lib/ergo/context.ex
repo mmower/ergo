@@ -10,10 +10,6 @@ defmodule Ergo.Context do
 
   # Fields
 
-  * `invoke_fn`
-
-  The `invoke_fn` defines the parsing entry point used for calling parsers.
-
   * `status`
 
   When a parser returns it either sets `status` to `:ok` to indicate that it was successful or to a tuple
@@ -59,17 +55,14 @@ defmodule Ergo.Context do
 
   * `tracks`
 
-  Parsers for which `track: true` is specified (by default this is most of the
-  combinator parsers but not the terminal parsers) will add themselves to the
-  `Context` tracks in the form of `{ref, index}`. If the same parser attempts
-  to add itself a second time at the same index an error is thrown because a
-  cycle has been detected.
+  Parsers will add themselves to the `Context` tracks in the form of `{ref, index}`.
+  If the same parser attempts to add itself a second time at the same index an
+  error is thrown because a cycle has been detected.
 
   * `depth`
-  * `depth_pad`
-  * `debug_override`
-  * `trace`
-  * `process`
+
+  As nested parsers are called the depth field will be updated to reflect the
+  number of levels of nesting for the current parser.
 
   """
 
