@@ -1,6 +1,12 @@
 defmodule Ergo.Telemetry do
-  alias Ergo.{Context, Parser}
+  alias Ergo.{Context, Parser, TelemetryServer}
   import Ergo.Utils
+
+  defdelegate get_events(id), to: Ergo.TelemetryServer
+
+  def start() do
+    Supervisor.start_link([{Ergo.TelemetryServer, {}}], strategy: :one_for_one)
+  end
 
   def child_list(%Parser{children: children}) do
     Enum.map(children, fn child -> {child.ref, child.type, child.label} end)
@@ -26,7 +32,7 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input),
+      input: ellipsize(input, 80),
       min: min,
       max: max,
       children: child_list(parser)
@@ -55,7 +61,7 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input),
+      input: ellipsize(input, 80),
       children: child_list(parser)
     })
 
@@ -82,7 +88,7 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input)
+      input: ellipsize(input, 80)
     })
 
     %{ctx | depth: depth + 1}
@@ -108,7 +114,7 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input),
+      input: ellipsize(input, 80),
       ast: ast
     })
 
@@ -123,6 +129,7 @@ defmodule Ergo.Telemetry do
         line: line,
         col: col,
         ast: ast,
+        input: input,
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :match], %{system_time: System.system_time()}, %{
@@ -135,6 +142,7 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
+      input: ellipsize(input, 80),
       ast: ast
     })
 
@@ -148,7 +156,8 @@ defmodule Ergo.Telemetry do
         status: {:error, errors},
         line: line,
         col: col,
-        depth: depth
+        depth: depth,
+        input: input
       } = ctx) do
     :telemetry.execute([:ergo, :error], %{system_time: System.system_time()}, %{
       id: id,
@@ -160,13 +169,10 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
+      input: ellipsize(input, 80),
       errors: errors
     })
 
-    ctx
-  end
-
-  def error(%Context{status: :ok} = ctx) do
     ctx
   end
 
