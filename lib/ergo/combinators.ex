@@ -107,12 +107,10 @@ defmodule Ergo.Combinators do
         with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx, label) do
           new_ctx
           |> map_fn.()
-          # |> Telemetry.match()
         else
           err_ctx ->
             err_ctx
             |> err_fn.()
-            # |> Telemetry.error()
         end
       end,
       children: parsers
@@ -126,11 +124,9 @@ defmodule Ergo.Combinators do
       fn %Parser{} = parser, %Context{} = ctx ->
         case Parser.invoke(ctx, parser) do
           %Context{status: :ok} = new_ctx ->
-            # Telemetry.match(new_ctx)
             {:halt, new_ctx}
 
           _err_ctx ->
-            # Telemetry.error(err_ctx)
             {:cont, ctx}
         end
       end
@@ -201,12 +197,10 @@ defmodule Ergo.Combinators do
           |> Context.ast_without_ignored()
           |> Context.ast_in_parsed_order()
           |> map_fn.()
-          # |> Telemetry.match()
         else
           err_ctx ->
             err_ctx
             |> err_fn.()
-            # |> Telemetry.error()
         end
       end,
       children: parsers
@@ -253,8 +247,6 @@ defmodule Ergo.Combinators do
         with %Context{status: :ok} = ok_ctx <- Parser.invoke(ctx, parser) do
           ok_ctx
           |> Context.ast_transform(fn ast -> List.first(ast) end)
-          # |> Telemetry.match()
-          # %{new_ctx | ast: item}  ^^ ast: [item | []]
         end
       end,
       children: [parser]
@@ -312,12 +304,10 @@ defmodule Ergo.Combinators do
           |> Context.ast_without_ignored()
           |> Context.ast_in_parsed_order()
           |> map_fn.()
-          # |> Telemetry.match()
         else
           err_ctx ->
             err_ctx
             |> err_fn.()
-            # |> Telemetry.error()
         end
       end,
       min: min,
@@ -440,9 +430,7 @@ defmodule Ergo.Combinators do
       fn ctx ->
         with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
-          |> Context.ast_transform(fn ast -> List.to_string(ast) end)
-          # |> Telemetry.match()
-          # %{new_ctx | ast: List.to_string(ast)}
+          |> Context.ast_transform(&List.to_string/1)
         end
       end,
       children: [parser]
@@ -467,9 +455,7 @@ defmodule Ergo.Combinators do
       fn ctx ->
         with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
-          |> Context.ast_transform(fn ast -> String.to_atom(ast) end)
-          # |> Telemetry.match()
-          # %{new_ctx | ast: String.to_atom(ast)}
+          |> Context.ast_transform(&String.to_atom/1)
         end
       end,
       children: [parser]
@@ -500,10 +486,6 @@ defmodule Ergo.Combinators do
         with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
           |> Context.ast_transform(transformer_fn)
-          # |> Telemetry.match()
-          # new_ctx
-          # |> Context.ast_transform(t_fn)
-          # |> Trace.trace(debug, "ALTER", inspect(ast))
         end
       end,
       children: [parser]
@@ -531,8 +513,6 @@ defmodule Ergo.Combinators do
         with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
           |> Context.ast_transform(fn _ast -> replacement_value end)
-          # |> Telemetry.match()
-          # %{new_ctx | ast: replacement_value}
         end
       end,
       children: [parser]

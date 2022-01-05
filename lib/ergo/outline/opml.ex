@@ -37,8 +37,10 @@ defmodule Ergo.Outline.OPML do
     |> String.replace(~r/"/, "&quot;")
     |> String.replace(~r/</, "&lt;")
     |> String.replace(~r/>/, "&gt;")
-    |> String.replace(~r/[\t\r\n]+/, "—")
-    |> String.replace(~r/\v/, "||")
+    |> String.replace(~r/\r/, "\\r")
+    |> String.replace(~r/\n/, "\\n")
+    |> String.replace(~r/\t/, "\\t")
+    |> String.replace(~r/\v/, "\\v")
   end
 
   def text(%{event: :enter, type: type, label: label, line: line, col: col, input: input}) do
