@@ -192,7 +192,7 @@ defmodule Ergo.Terminals do
       label,
       fn ctx ->
         with %Context{status: :ok} = peek_ctx <- Context.peek(ctx) do
-          err_ctx = Context.add_error(ctx, :unexpected_char, "Expected: #{describe_char_match(l)} Actual: #{char_to_string(peek_ctx.ast)}")
+          err_ctx = Context.add_error(ctx, :unexpected_char, "Expected: #{describe_char_match(l)} Actual: #{describe_char_match(peek_ctx.ast)}")
 
           Enum.reduce_while(l, err_ctx, fn matcher, err_ctx ->
             case Parser.invoke(ctx, char(matcher)) do
@@ -234,7 +234,7 @@ defmodule Ergo.Terminals do
         with %Context{status: :ok, ast: ast} <- Context.peek(ctx) do
           case Enum.member?(l, ast) do
             true ->
-              Context.add_error(ctx, :unexpected_char, "Should not have matched #{char_to_string(ast)}")
+              Context.add_error(ctx, :unexpected_char, "Should not have matched #{describe_char_match(ast)}")
             false ->
               Context.next_char(ctx)
           end
@@ -243,12 +243,36 @@ defmodule Ergo.Terminals do
     )
   end
 
-  defp describe_char_match(c) when is_integer(c) and c > 0 do
+  defp describe_char_match(c) when is_integer(c) and c < 0 do
+    "!#{char_to_string(-c)}"
+  end
+
+  defp describe_char_match(9) do
+    "~TB~"
+  end
+
+  defp describe_char_match(10) do
+    "~LF~"
+  end
+
+  defp describe_char_match(11) do
+    "~VT~"
+  end
+
+  defp describe_char_match(13) do
+    "~CR~"
+  end
+
+  defp describe_char_match(32) do
+    "~SP~"
+  end
+
+  defp describe_char_match(c) when is_integer(c) and c > 32 do
     char_to_string(c)
   end
 
   defp describe_char_match(c) when is_integer(c) do
-    "!#{char_to_string(-c)}"
+    "_#{String.pad_leading(Integer.to_string(c, 16), 2, "0")}_"
   end
 
   defp describe_char_match(min..max) when is_integer(min) and is_integer(max) do
@@ -305,7 +329,7 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = alpha()
-      iex> assert %Context{status: {:error, [{:unexpected_char, {1, 1}, "Expected: [a..z, A..Z] Actual:  "}]}, input: " World"} = Ergo.parse(parser, " World")
+      iex> assert %Context{status: {:error, [{:unexpected_char, {1, 1}, "Expected: [a..z, A..Z] Actual: ~SP~"}]}, input: " World"} = Ergo.parse(parser, " World")
   """
   def alpha(options \\ []) do
     label = Keyword.get(options, :label, "alpha")
@@ -335,7 +359,7 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = ws()
-      iex> assert %Context{status: {:error, [{:unexpected_char, {1, 1}, "Expected: [\s, \t, \r, \n, \v] Actual: H"}]}, input: "Hello World"} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: {:error, [{:unexpected_char, {1, 1}, "Expected: [~SP~, ~TB~, ~CR~, ~LF~, ~VT~] Actual: H"}]}, input: "Hello World"} = Ergo.parse(parser, "Hello World")
   """
   def ws() do
     char([?\s, ?\t, ?\r, ?\n, ?\v], label: "ws")
@@ -365,7 +389,7 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.Context
       iex> import Ergo.Terminals
       iex> parser = wc()
-      iex> assert %Context{status: {:error, [{:unexpected_char, {1, 1}, "Expected: [0..9, a..z, A..Z, _] Actual:  "}]}, input: " Hello"} = Ergo.parse(parser, " Hello")
+      iex> assert %Context{status: {:error, [{:unexpected_char, {1, 1}, "Expected: [0..9, a..z, A..Z, _] Actual: ~SP~"}]}, input: " Hello"} = Ergo.parse(parser, " Hello")
   """
   def wc() do
     char([?0..?9, ?a..?z, ?A..?Z, ?_], label: "wc")
@@ -451,7 +475,7 @@ defmodule Ergo.Terminals do
 
         ^close_char ->
           case count do
-            0 -> Context.add_error(new_ctx, :unexpected_char, "Expected #{char_to_string(open_char)} Actual: #{char_to_string(close_char)}")
+            0 -> Context.add_error(new_ctx, :unexpected_char, "Expected #{describe_char_match(open_char)} Actual: #{describe_char_match(close_char)}")
 
             _ ->
               count = count - 1
@@ -463,7 +487,7 @@ defmodule Ergo.Terminals do
 
         _char ->
           case count do
-            0 -> Context.add_error(new_ctx, :unexpected_char, "Expected #{char_to_string(open_char)} Actual: #{char_to_string(ast)}")
+            0 -> Context.add_error(new_ctx, :unexpected_char, "Expected #{describe_char_match(open_char)} Actual: #{describe_char_match(ast)}")
 
             _ ->
               nested_next_char(new_ctx, {count, [ast | chars]}, open_char, close_char)

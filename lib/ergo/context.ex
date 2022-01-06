@@ -90,15 +90,15 @@ defmodule Ergo.Context do
     iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %MapSet{}} = Context.new("Hello World")
   """
   def new(input \\ "", options \\ []) when is_binary(input) do
-    id = Keyword.get(options, :id, make_ref())
+    created_at = Calendar.strftime(DateTime.utc_now, "%y-%m-%d-%H-%M-%S")
+
+    id = Keyword.get(options, :id, created_at)
     ast = Keyword.get(options, :ast, nil)
     data = Keyword.get(options, :data, %{})
 
-    {:ok, creation_time} = DateTime.now("Etc/UTC")
-
     %Context{
       id: id,
-      created_at: creation_time,
+      created_at: created_at,
       input: input,
       ast: ast,
       data: data

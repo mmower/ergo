@@ -14,6 +14,8 @@ defmodule Ergo.Outline.OPML do
   def generate_node(%{event: type, type: parser, label: label, line: line, col: col, depth: depth} = event, :open) do
     text = case type do
       :event -> event.user_event
+      :match -> if is_nil(event.ast) do "NIL-IGNORE" else "#{Ergo.Utils.typeof(event.ast)}: #{inspect(event.ast)}" end
+      :error -> inspect(event.errors)
       _ -> Map.get(event, :input, "")
     end
     [String.duplicate("  ", depth), "<outline event=\"#{to_string(type)}\" line=\"#{line}:#{col}\" parser=\"#{to_string(parser)}\" label=\"#{to_xml_attr_value(label)}\" text=\"", to_xml_attr_value(text), "\">\n"]
@@ -26,6 +28,8 @@ defmodule Ergo.Outline.OPML do
   def generate_node(%{event: type, type: parser, label: label, line: line, col: col, depth: depth} = event, :closed) do
     text = case type do
       :event -> event.user_event
+      :match -> if is_nil(event.ast) do "NIL-IGNORE" else "#{Ergo.Utils.typeof(event.ast)}: #{inspect(event.ast)}" end
+      :error -> inspect(event.errors)
       _ -> Map.get(event, :input, "")
     end
     [String.duplicate("  ", depth), "<outline event=\"#{to_string(type)}\" line=\"#{line}:#{col}\" parser=\"#{to_string(parser)}\" label=\"#{to_xml_attr_value(label)}\" text=\"", to_xml_attr_value(text), "\" />\n"]

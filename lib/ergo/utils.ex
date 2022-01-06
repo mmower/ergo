@@ -46,4 +46,14 @@ defmodule Ergo.Utils do
     end
   end
 
+  # From https://elixirforum.com/t/just-created-a-typeof-module/2583/5
+  types =
+    ~w[boolean binary bitstring float function integer list map nil pid port reference tuple atom]
+
+  for type <- types do
+    def typeof(x) when unquote(:"is_#{type}")(x), do: unquote(type)
+  end
+
+  def typeof(_) do "unknown" end
+
 end

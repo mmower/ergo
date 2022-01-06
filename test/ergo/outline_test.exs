@@ -60,8 +60,72 @@ defmodule Ergo.OutlineTest do
       |> Ergo.Outline.Builder.walk(&Ergo.Outline.OPML.generate_node/2)
 
     assert [
-      ["", "<outline event=\"enter\" line=\"1:1\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"", "42", "\">\n"],
-      [[["  ", "<outline event=\"enter\" line=\"1:1\" parser=\"char_range\" label=\"digit\" text=\"", "42", "\">\n"], [["    ", "<outline event=\"match\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"", "2", "\" />\n"], ["    ", "<outline event=\"leave\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"", "2", "\" />\n"]], ["  ", "</outline>\n"]], [["  ", "<outline event=\"enter\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"", "2", "\">\n"], [["    ", "<outline event=\"match\" line=\"1:3\" parser=\"char_range\" label=\"digit\" text=\"", "", "\" />\n"], ["    ", "<outline event=\"leave\" line=\"1:3\" parser=\"char_range\" label=\"digit\" text=\"", "", "\" />\n"]], ["  ", "</outline>\n"]], ["  ", "<outline event=\"match\" line=\"1:3\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"", "", "\" />\n"], ["  ", "<outline event=\"leave\" line=\"1:3\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"", "", "\" />\n"]],
+      [
+        "",
+        "<outline event=\"enter\" line=\"1:1\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"",
+        "42",
+        "\">\n"
+      ],
+      [
+        [
+          [
+            "  ",
+            "<outline event=\"enter\" line=\"1:1\" parser=\"char_range\" label=\"digit\" text=\"",
+            "42",
+            "\">\n"
+          ],
+          [
+            [
+              "    ",
+              "<outline event=\"match\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"",
+              "integer: 52",
+              "\" />\n"
+            ],
+            [
+              "    ",
+              "<outline event=\"leave\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"",
+              "2",
+              "\" />\n"
+            ]
+          ],
+          ["  ", "</outline>\n"]
+        ],
+        [
+          [
+            "  ",
+            "<outline event=\"enter\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"",
+            "2",
+            "\">\n"
+          ],
+          [
+            [
+              "    ",
+              "<outline event=\"match\" line=\"1:3\" parser=\"char_range\" label=\"digit\" text=\"",
+              "integer: 50",
+              "\" />\n"
+            ],
+            [
+              "    ",
+              "<outline event=\"leave\" line=\"1:3\" parser=\"char_range\" label=\"digit\" text=\"",
+              "",
+              "\" />\n"
+            ]
+          ],
+          ["  ", "</outline>\n"]
+        ],
+        [
+          "  ",
+          "<outline event=\"match\" line=\"1:3\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"",
+          "list: '42'",
+          "\" />\n"
+        ],
+        [
+          "  ",
+          "<outline event=\"leave\" line=\"1:3\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"",
+          "",
+          "\" />\n"
+        ]
+      ],
       ["", "</outline>\n"]
     ] = outline
   end
