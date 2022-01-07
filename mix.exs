@@ -7,7 +7,7 @@ defmodule Ergo.MixProject do
     [
       app: :ergo,
       name: "Ergo",
-      description: "A simple, macro free, parser combinator library",
+      description: "A pragmatic parser combinator library",
       version: @version,
       elixir: "~> 1.12",
       start_permanent: Mix.env() == :prod,
