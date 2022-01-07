@@ -83,9 +83,7 @@ defmodule Ergo.OutlineTest do
             ],
             [
               "    ",
-              "<outline event=\"leave\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"",
-              "2",
-              "\" />\n"
+              "<outline event=\"leave\" line=\"1:2\" parser=\"char_range\" label=\"digit\" text=\"\" />\n"
             ]
           ],
           ["  ", "</outline>\n"]
@@ -106,9 +104,7 @@ defmodule Ergo.OutlineTest do
             ],
             [
               "    ",
-              "<outline event=\"leave\" line=\"1:3\" parser=\"char_range\" label=\"digit\" text=\"",
-              "",
-              "\" />\n"
+              "<outline event=\"leave\" line=\"1:3\" parser=\"char_range\" label=\"digit\" text=\"\" />\n"
             ]
           ],
           ["  ", "</outline>\n"]
@@ -121,9 +117,7 @@ defmodule Ergo.OutlineTest do
         ],
         [
           "  ",
-          "<outline event=\"leave\" line=\"1:3\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"",
-          "",
-          "\" />\n"
+          "<outline event=\"leave\" line=\"1:3\" parser=\"sequence\" label=\"sequence&lt;digit, digit&gt;\" text=\"\" />\n"
         ]
       ],
       ["", "</outline>\n"]

@@ -2,6 +2,8 @@ defmodule Ergo.Telemetry do
   alias Ergo.{Context, Parser}
   import Ergo.Utils
 
+  @input_length 80
+
   defdelegate get_events(id), to: Ergo.TelemetryServer
 
   def start() do
@@ -32,7 +34,7 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input, 80),
+      input: String.slice(input, 0..@input_length),
       min: min,
       max: max,
       children: child_list(parser)
@@ -61,7 +63,7 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input, 80),
+      input: String.slice(input, 0..@input_length),
       children: child_list(parser)
     })
 
@@ -88,7 +90,7 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input, 80)
+      input: String.slice(input, 0..@input_length)
     })
 
     %{ctx | depth: depth + 1}
@@ -100,7 +102,6 @@ defmodule Ergo.Telemetry do
         parser: %{type: type, ref: ref, label: label},
         line: line,
         col: col,
-        input: input,
         ast: ast,
         depth: depth
       } = ctx) do
@@ -114,7 +115,6 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input, 80),
       ast: ast
     })
 
@@ -129,7 +129,6 @@ defmodule Ergo.Telemetry do
         line: line,
         col: col,
         ast: ast,
-        input: input,
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :match], %{system_time: System.system_time()}, %{
@@ -142,7 +141,6 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input, 80),
       ast: ast
     })
 
@@ -157,7 +155,6 @@ defmodule Ergo.Telemetry do
         line: line,
         col: col,
         depth: depth,
-        input: input
       } = ctx) do
     :telemetry.execute([:ergo, :error], %{system_time: System.system_time()}, %{
       id: id,
@@ -169,7 +166,6 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: ellipsize(input, 80),
       errors: errors
     })
 
