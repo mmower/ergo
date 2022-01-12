@@ -180,21 +180,19 @@ defmodule Ergo.Telemetry do
     col: col,
     depth: depth
   } = ctx, event, details \\ %{}) do
-    metadata =
-      %{
-        id: id,
-        event: :event,
-        user_event: event,
-        depth: depth,
-        created_at: created_at,
-        ref: ref,
-        type: type,
-        label: label,
-        line: line,
-        col: col
-      } |> Map.merge(details)
-
-    :telemetry.execute([:ergo, :event], %{system_time: System.system_time()}, metadata)
+    :telemetry.execute([:ergo, :event], %{system_time: System.system_time()}, %{
+      id: id,
+      event: :event,
+      user_event: event,
+      details: details,
+      depth: depth,
+      created_at: created_at,
+      ref: ref,
+      type: type,
+      label: label,
+      line: line,
+      col: col
+    })
 
     ctx
   end

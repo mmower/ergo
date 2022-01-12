@@ -18,35 +18,33 @@ defmodule Ergo.Combinators do
 
   """
 
-  # If any element of the parser list is not an Ergo.Parser, raise an exception.
-
+  # Raises an exception if the passed argument is not a valid Parser struct
   defp validate_parser(p) do
     if !is_struct(p, Ergo.Parser), do: raise("Non-parser passed to combinator: #{inspect(p)}")
   end
 
+  # Raises an exception if any element of the passed argument list is not a valid Parser struct
   defp validate_parsers(parsers) when is_list(parsers) do
     if Enum.empty?(parsers), do: raise("Passed empty parser list to combinator")
     Enum.each(parsers, &validate_parser/1)
   end
 
-  def parser_labels(parsers) when is_list(parsers) do
+  # Gathers the labels from a list of Parsers and converts them into a string
+  defp parser_labels(parsers) when is_list(parsers) do
     parsers
     |> Enum.map(fn %Parser{label: label} -> label end)
     |> Enum.join(", ")
   end
 
-  @doc ~S"""
-  A ctx: function should be passed & return the whole context. It takes
-  precendence over an ast: function that receives and returns a modified
-  AST. Otherwise the identity function is returned.
-
-  ## Examples
-      iex> alias Ergo.Context
-      iex> import Ergo.Combinators
-      iex> f = mapping_fn(ctx: fn _ -> :kazam end)
-      iex> assert :kazam = f.(%Context{})
-  """
-  def mapping_fn(opts) do
+  # Given a keyword list representing options:
+  # first looks for the `ctx:` option which is expected to be a function that
+  # takes & returns a `Context.
+  # next looks for the `ast:` option which is expected to be a function that
+  # takes & returns an AST value. This is wrapped in a function that takes
+  # a `Context` and returns a `Context` with the modified AST.
+  # finally returns the identity function.
+  # Allows the return to be safely put into into a Context based pipeline.
+  defp mapping_fn(opts) do
     ctx_fn = Keyword.get(opts, :ctx)
     ast_fn = Keyword.get(opts, :ast)
 
@@ -63,8 +61,15 @@ defmodule Ergo.Combinators do
   end
 
   @doc ~S"""
-  The `choice/1` parser takes a list of parsers. It tries each in order attempting to match one. Once a match has been
-  made choice returns the result of the matching parser.
+  The `choice/2` parser takes a list of parsers and a list (defaults to []) of
+  options. It tries to match each in turn, returning :ok if it does. Otherwise,
+  if none match, it returns :error.
+
+  Valid options are:
+  * `label: "text"` a label output in debugging
+    `ast: fn` a function passed the AST value for processing if the parser succeeds
+    `ctx: fn` a function passed the `Context` for processing if the parser succeeds
+    `err: fn` a function passed the `Context` for processing if the parser fails
 
   ## Examples
 
@@ -133,15 +138,9 @@ defmodule Ergo.Combinators do
     )
   end
 
-  # def choice_pass(%Context{} = ctx, debug, %Parser{label: label}) do
-  #   Trace.trace(ctx, debug, "ACCEPT", label)
-  # end
-
-  # def choice_fail(%Context{} = ctx, debug, %Parser{label: label}) do
-  #   Trace.trace(ctx, debug, "NOALT", label)
-  # end
-
   @doc ~S"""
+  The `sequence/2` parser takes a list of parsers which are applied in turn.
+  If any of the parsers fails the sequence itself fails.
 
   ## Examples
 
@@ -224,7 +223,7 @@ defmodule Ergo.Combinators do
   end
 
   @doc """
-  The hoist/1 parser takes a parser expected to return an AST which is a
+  The `hoist/1` parser takes a parser expected to return an AST which is a
   1-item list. The returned parser extracts the item from the list and
   returns an AST of just that item.
 
@@ -254,6 +253,11 @@ defmodule Ergo.Combinators do
   end
 
   @doc ~S"""
+  The `many/2` parser takes a parser and attempts to match it on the input
+  multiple (including possibly zero) times. Accepts options `min:` and `max:`
+  to modify how many times the included parser must match for `many` to
+  match.
+
   ## Examples
 
       This test will need to be rewritten in terms of Ergo.diganose
@@ -345,6 +349,8 @@ defmodule Ergo.Combinators do
   end
 
   @doc ~S"""
+  The optional/2 parser takes a parser and attempts to match it and succeeds
+  whether or not it can.
 
   ## Examples
 
