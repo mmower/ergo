@@ -1,6 +1,5 @@
 defmodule Ergo.Telemetry do
-  alias Ergo.{Context, Parser}
-  import Ergo.Utils
+  alias Ergo.Context
 
   @input_length 80
 
@@ -8,16 +7,13 @@ defmodule Ergo.Telemetry do
 
   def start() do
     Supervisor.start_link([{Ergo.TelemetryServer, {}}], strategy: :one_for_one)
-  end
-
-  def child_list(%Parser{children: children}) do
-    Enum.map(children, fn child -> {child.ref, child.type, child.label} end)
+    IO.puts("Start returned")
   end
 
   def enter(%Context{
         id: id,
         created_at: created_at,
-        parser: %{type: :many, ref: ref, label: label, min: min, max: max} = parser,
+        parser: %{type: :many, ref: ref, label: label, min: min, max: max, child_info: child_info},
         line: line,
         col: col,
         input: input,
@@ -37,7 +33,7 @@ defmodule Ergo.Telemetry do
       input: String.slice(input, 0..@input_length),
       min: min,
       max: max,
-      children: child_list(parser)
+      child_info: child_info
     })
 
     %{ctx | depth: depth + 1}
@@ -46,7 +42,7 @@ defmodule Ergo.Telemetry do
   def enter(%Context{
         id: id,
         created_at: created_at,
-        parser: %{combinator: true, ref: ref, type: type, label: label} = parser,
+        parser: %{combinator: true, ref: ref, type: type, label: label, child_info: child_info},
         line: line,
         col: col,
         input: input,
@@ -64,7 +60,7 @@ defmodule Ergo.Telemetry do
       line: line,
       col: col,
       input: String.slice(input, 0..@input_length),
-      children: child_list(parser)
+      child_info: child_info
     })
 
     %{ctx | depth: depth + 1}
@@ -73,7 +69,7 @@ defmodule Ergo.Telemetry do
   def enter(%Context{
         id: id,
         created_at: created_at,
-        parser: %{combinator: false, ref: ref, type: type, label: label},
+        parser: %{combinator: false, ref: ref, type: type, label: label, child_info: child_info},
         line: line,
         col: col,
         input: input,
@@ -90,7 +86,8 @@ defmodule Ergo.Telemetry do
       label: label,
       line: line,
       col: col,
-      input: String.slice(input, 0..@input_length)
+      input: String.slice(input, 0..@input_length),
+      child_info: child_info
     })
 
     %{ctx | depth: depth + 1}

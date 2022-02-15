@@ -34,7 +34,6 @@ defmodule Ergo.Parser do
   defstruct type: nil,
             label: "*unknown*",
             combinator: false,
-            children: [],
             parser_fn: nil,
             ref: nil,
             err: nil
@@ -102,6 +101,14 @@ defmodule Ergo.Parser do
 
   def pop_entry_point(%Context{entry_points: [_ | entry_points]} = ctx) do
     %{ctx | entry_points: entry_points}
+  end
+
+  def child_info_for_telemetry(children) when is_list(children) do
+    Enum.map(children, fn %Parser{ref: ref, type: type, label: label} -> {ref, type, label} end)
+  end
+
+  def child_info_for_telemetry(%{ref: ref, type: type, label: label}) do
+    [{ref, type, label}]
   end
 
   @doc ~S"""

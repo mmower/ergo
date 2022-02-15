@@ -118,7 +118,7 @@ defmodule Ergo.Combinators do
             |> err_fn.()
         end
       end,
-      children: parsers
+      child_info: Parser.child_info_for_telemetry(parsers)
     )
   end
 
@@ -248,7 +248,7 @@ defmodule Ergo.Combinators do
           |> Context.ast_transform(fn ast -> List.first(ast) end)
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -316,7 +316,7 @@ defmodule Ergo.Combinators do
       end,
       min: min,
       max: max,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -388,7 +388,7 @@ defmodule Ergo.Combinators do
             |> Telemetry.event("BAIL")
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -414,7 +414,7 @@ defmodule Ergo.Combinators do
           %{new_ctx | ast: nil}
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -439,7 +439,7 @@ defmodule Ergo.Combinators do
           |> Context.ast_transform(&List.to_string/1)
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -464,7 +464,7 @@ defmodule Ergo.Combinators do
           |> Context.ast_transform(&String.to_atom/1)
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -494,7 +494,7 @@ defmodule Ergo.Combinators do
           |> Context.ast_transform(transformer_fn)
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -521,7 +521,7 @@ defmodule Ergo.Combinators do
           |> Context.ast_transform(fn _ast -> replacement_value end)
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -565,7 +565,7 @@ defmodule Ergo.Combinators do
           #   # %{bad_ctx | status: {:error, }, message: nil}
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -608,7 +608,7 @@ defmodule Ergo.Combinators do
           # %Context{} -> Context.add_error(ctx, :lookahead_fail, "Satisfied: #{parser.label}")
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
@@ -646,7 +646,7 @@ defmodule Ergo.Combinators do
           end
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
     )
   end
 
