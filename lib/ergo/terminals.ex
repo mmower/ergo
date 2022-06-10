@@ -361,8 +361,9 @@ defmodule Ergo.Terminals do
       iex> parser = ws()
       iex> assert %Context{status: {:error, [{:unexpected_char, {1, 1}, "Expected: [~SP~, ~TB~, ~CR~, ~LF~, ~VT~] Actual: H"}]}, input: "Hello World"} = Ergo.parse(parser, "Hello World")
   """
-  def ws() do
-    char([?\s, ?\t, ?\r, ?\n, ?\v], label: "ws")
+  def ws(options \\ []) do
+    label = Keyword.get(options, :label, "ws")
+    char([?\s, ?\t, ?\r, ?\n, ?\v], label: label)
   end
 
   @doc ~S"""

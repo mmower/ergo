@@ -19,10 +19,10 @@ however that is beyond the scope of this guide.
 ## Eager Recursion
 
 There is a further problem that arises from the way parser combinators are
-defined as functions returning functions. Here is an example parser that
-is designed to parse values like 42, true, "What is six times seven?" and also
-lists of values, including other lists. Note that we elide handling white
-space for brevity.
+defined as functions returning in a language that is not, by default, lazy.
+Here is an example parser that is designed to parse values like 42, true,
+"What is six times seven?" and also lists of values, including other lists.
+Note that we elide handling white space for brevity.
 
 ```elixir
 def value() do
@@ -57,7 +57,7 @@ so on in an infinite recursion.
 Note that this is not grammatical recursion as in the left recursion example
 above and cannot be solved by rewriting. The issue is that Elixir evaluates
 function calls eagerly, i.e. when they are encountered. We need to introduce
-a gap to break the recursion.
+a "call gap" to break the recursion.
 
 We do this with the `lazy` parser combinator. Lazy wraps it's parser in a
 function so that it is not called immediately, breaking the recursion. E.g.:

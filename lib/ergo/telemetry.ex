@@ -7,7 +7,6 @@ defmodule Ergo.Telemetry do
 
   def start() do
     Supervisor.start_link([{Ergo.TelemetryServer, {}}], strategy: :one_for_one)
-    IO.puts("Start returned")
   end
 
   def enter(%Context{
@@ -148,11 +147,11 @@ defmodule Ergo.Telemetry do
         id: id,
         created_at: created_at,
         parser: %{type: type, ref: ref, label: label},
-        status: {:error, errors},
+        status: {code, errors},
         line: line,
         col: col,
         depth: depth,
-      } = ctx) do
+      } = ctx) when code in [:error, :fatal] do
     :telemetry.execute([:ergo, :error], %{system_time: System.system_time()}, %{
       id: id,
       event: :error,

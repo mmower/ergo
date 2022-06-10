@@ -1,6 +1,7 @@
 defmodule Ergo.Parser do
   alias __MODULE__
   alias Ergo.{Context, ParserRefs, Telemetry}
+  import Ergo.Utils, only: [printable_string: 1]
 
   require Logger
 
@@ -9,16 +10,13 @@ defmodule Ergo.Parser do
 
     defexception [:message]
 
-    def exception(%{
-          context: %{dedescription: description, line: line, col: col},
-          parser: %{tracks: tracks}
-        }) do
+    def exception({%{index: curr_index, line: line, col: col, tracks: tracks} = _ctx, %{label: label, ref: cur_ref} = _parser}) do
       message =
         Enum.reduce(
-          tracks,
-          "Ergo has detected a cycle in #{description} and is aborting parsing at: #{line}:#{col}",
-          fn {_ref, description, _index, _line, _col}, msg ->
-            msg <> "\n#{description}"
+          tracks |> Enum.sort_by(fn {{index, _}, _} -> index end),
+          "Ergo has detected a cycle! Aborting parsing of #{printable_string(label)}:(#{cur_ref}) at: L#{line}:#{col}",
+          fn {{index, ref}, {line, col, {type, label}}}, msg ->
+            msg <> "\nL#{line}:#{col} #{type}/#{printable_string(label)}(#{ref}) #{if ref == cur_ref && index == curr_index, do: "<-- HERE"}"
           end
         )
 
@@ -36,7 +34,8 @@ defmodule Ergo.Parser do
             combinator: false,
             parser_fn: nil,
             ref: nil,
-            err: nil
+            err: nil,
+            child_info: []
 
   @doc ~S"""
   Create a new combinator parser with the given label, parsing function, and
@@ -71,19 +70,12 @@ defmodule Ergo.Parser do
   end
 
   @doc ~S"""
-  `invoke/2` is the main entry point for the parsing process. It looks up the parser control function within
-  the `Context` and uses it to run the given `parser`.
-
-  This indirection allows a different control function to be specified, e.g. by the diagnose entry point
-  which can wrap the parser call, while still calling the same parsing function (i.e. we are not introducing
-  debugging variants of the parsers that could be subject to different behaviours)
+  `invoke/2` invokes the parsing function of the given parser on the specified
+  `%Context{}` structure. It maintains housekeeping for the parser generally.
   """
-
-  def invoke(%Context{parser: invoking_parser} = ctx, %Parser{parser_fn: parser_fn} = parser) do
-    stashed_parser = invoking_parser
-
+  def invoke(%Context{} = ctx, %Parser{parser_fn: parser_fn} = parser) do
     ctx
-    |> Context.set_parser(parser)
+    |> Context.push_parser(parser)
     |> Telemetry.enter()
     |> Context.reset_status()
     |> track_parser()
@@ -92,7 +84,7 @@ defmodule Ergo.Parser do
     |> pop_entry_point()
     |> Telemetry.result()
     |> Telemetry.leave()
-    |> Context.set_parser(stashed_parser)
+    |> Context.pop_parser()
   end
 
   def push_entry_point(%Context{entry_points: entry_points, line: line, col: col} = ctx) do
@@ -126,11 +118,11 @@ defmodule Ergo.Parser do
     ...>  |> Parser.track_parser()
     iex> assert Context.parser_tracked?(context, parser.ref)
   """
-  def track_parser(%Context{parser: %Parser{ref: ref} = parser} = ctx) do
+  def track_parser(%Context{parser: %Parser{ref: ref, type: type, label: label} = parser} = ctx) do
     if Context.parser_tracked?(ctx, ref) do
-      raise Ergo.Parser.CycleError, %{context: ctx, parser: parser}
+      raise Ergo.Parser.CycleError, {ctx, parser}
     else
-      Context.track_parser(ctx, ref)
+      Context.track_parser(ctx, ref, {type, label})
     end
   end
 end

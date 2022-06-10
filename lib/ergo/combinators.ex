@@ -109,13 +109,12 @@ defmodule Ergo.Combinators do
       :choice,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok} = new_ctx <- apply_parsers_in_turn(parsers, ctx, label) do
-          new_ctx
-          |> map_fn.()
-        else
-          err_ctx ->
-            err_ctx
-            |> err_fn.()
+        case apply_parsers_in_turn(parsers, ctx, label) do
+          %Context{status: :ok} = ok_ctx ->
+            map_fn.(ok_ctx)
+
+          %Context{} = err_ctx ->
+            err_fn.(err_ctx)
         end
       end,
       child_info: Parser.child_info_for_telemetry(parsers)
@@ -131,8 +130,11 @@ defmodule Ergo.Combinators do
           %Context{status: :ok} = new_ctx ->
             {:halt, new_ctx}
 
-          _err_ctx ->
+          %Context{status: {:error, _}} ->
             {:cont, ctx}
+
+          %Context{status: {:fatal, _}} = fatal_ctx ->
+            {:halt, fatal_ctx}
         end
       end
     )
@@ -141,6 +143,11 @@ defmodule Ergo.Combinators do
   @doc ~S"""
   The `sequence/2` parser takes a list of parsers which are applied in turn.
   If any of the parsers fails the sequence itself fails.
+
+  The `sequence/2` parser treats the `commit/0` parser differently. When it
+  sees commit it increments the contexts commit count. When the parser
+  is complete, if it has increased the commit count it decrements it before
+  returning it. See also `many`
 
   ## Examples
 
@@ -190,36 +197,62 @@ defmodule Ergo.Combinators do
       :sequence,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok} = new_ctx <- sequence_reduce(parsers, ctx) do
-          # We reject nils from the AST since they represent ignored values
-          new_ctx
-          |> Context.ast_without_ignored()
-          |> Context.ast_in_parsed_order()
-          |> map_fn.()
-        else
-          err_ctx ->
-            err_ctx
-            |> err_fn.()
+        case sequence_reduce(parsers, ctx) do
+          %Context{status: :ok} = ok_ctx ->
+            ok_ctx
+            # We remove nils from the AST since they represent ignored values
+            |> Context.ast_without_ignored()
+            |> Context.ast_in_parsed_order()
+            |> map_fn.()
+
+          %Context{} = err_ctx ->
+            err_fn.(err_ctx)
         end
       end,
-      children: parsers
+      child_info: Parser.child_info_for_telemetry(parsers)
     )
   end
 
   defp sequence_reduce(parsers, %Context{} = ctx) when is_list(parsers) do
-    Enum.reduce_while(parsers, %{ctx | ast: []}, fn parser, ctx ->
-      case Parser.invoke(ctx, parser) do
-        %Context{status: :ok} = new_ctx ->
-          {:cont, seq_pass(new_ctx, ctx)}
-        err_ctx ->
-          {:halt, err_ctx}
-      end
-    end)
-  end
+    ctx =
+      ctx
+      |> Context.set_ast([])
 
-  def seq_pass(%Context{ast: new_ast} = new_ctx, %Context{ast: old_ast}) do
-    new_ctx
-    |> Map.put(:ast, [new_ast | old_ast])
+    {committed, seq_ctx} =
+      Enum.reduce_while(parsers, {false, ctx}, fn
+        %{type: :commit}, {_, ctx} ->
+          # We don't need to invoke the commit parser, just recognise that
+          # we have seen it
+          {:cont, {true, Context.commit(ctx)}}
+
+        parser, {committed, ctx} ->
+          case {Parser.invoke(ctx, parser), committed} do
+            {%Context{status: :ok, ast: child_ast} = ok_ctx, _} ->
+              # Return the new CTX but prepend the child AST to the old AST
+              {:cont, {committed, %{ok_ctx | ast: [child_ast | ctx.ast]}}}
+
+            {%Context{status: {:fatal, _}} = fatal_ctx, _} ->
+              {:halt, {committed, fatal_ctx}}
+
+            {%Context{status: {:error, _} = status, commit: commit_level} = fatal_ctx, true} when commit_level > 0 ->
+              # Error when committed, convert to fatal error
+              # status =
+              #   status
+              #   |> Tuple.delete_at(0)
+              #   |> Tuple.insert_at(0, :fatal)
+
+              {:halt, {true, %{fatal_ctx | status: put_elem(status, 0, :fatal)}}}
+
+            {%Context{status: {:error, _}} = err_ctx, false} ->
+              # Regular error, halt and report back
+              {:halt, {false, err_ctx}}
+          end
+      end)
+
+    case committed do
+      false -> seq_ctx
+      true -> Context.uncommit(seq_ctx)
+    end
   end
 
   @doc """
@@ -303,15 +336,15 @@ defmodule Ergo.Combinators do
       :many,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok} = new_ctx <- parse_many(parser, %{ctx | ast: []}, min, max, 0) do
-          new_ctx
-          |> Context.ast_without_ignored()
-          |> Context.ast_in_parsed_order()
-          |> map_fn.()
-        else
+        case parse_many(parser, Context.set_ast(ctx, []), min, max, 0) do
+          %{status: :ok} = ok_ctx ->
+            ok_ctx
+            |> Context.ast_without_ignored()
+            |> Context.ast_in_parsed_order()
+            |> map_fn.()
+
           err_ctx ->
-            err_ctx
-            |> err_fn.()
+            err_fn.(err_ctx)
         end
       end,
       min: min,
@@ -324,6 +357,9 @@ defmodule Ergo.Combinators do
       when is_integer(min) and min >= 0 and ((is_integer(max) and max > min) or max == :infinity) and
              is_integer(count) do
     case Parser.invoke(ctx, parser) do
+      %Context{status: {:fatal, _}} = fatal_ctx ->
+        fatal_ctx
+
       %Context{status: {:error, _}} = err_ctx ->
         Telemetry.result(err_ctx)
 
@@ -379,6 +415,10 @@ defmodule Ergo.Combinators do
           %Context{status: :ok} = match_ctx ->
             match_ctx
             |> map_fn.()
+
+          %Context{status: {:fatal, _}} = fatal_ctx ->
+            fatal_ctx
+            |> Telemetry.result()
 
           %Context{status: {:error, _}} = err_ctx ->
             Telemetry.result(err_ctx)
@@ -482,7 +522,8 @@ defmodule Ergo.Combinators do
       iex> context = Ergo.parse(parser, "1234")
       iex> %Context{status: :ok, ast: 10, index: 4, line: 1, col: 5} = context
   """
-  def transform(%Parser{} = parser, transformer_fn, opts \\ []) when is_function(transformer_fn) do
+  def transform(%Parser{} = parser, transformer_fn, opts \\ [])
+      when is_function(transformer_fn) do
     label = Keyword.get(opts, :label, "transform<#{parser.label}>")
 
     Parser.combinator(
@@ -516,6 +557,7 @@ defmodule Ergo.Combinators do
       label,
       fn %Context{} = ctx ->
         Telemetry.enter(ctx)
+
         with %Context{status: :ok} = match_ctx <- Parser.invoke(ctx, parser) do
           match_ctx
           |> Context.ast_transform(fn _ast -> replacement_value end)
@@ -551,18 +593,13 @@ defmodule Ergo.Combinators do
           %Context{status: :ok} ->
             ctx
             |> Context.reset_status()
-            # |> Telemetry.match()
+
+          %Context{status: {:fatal, _}} = fatal_ctx ->
+            fatal_ctx
 
           %Context{status: {:error, _}} = err_ctx ->
             err_ctx
             |> Context.add_error(:lookahead_fail, "Could not satisfy: #{parser.label}")
-            # |> Telemetry.error()
-
-          # bad_ctx ->
-          #   bad_ctx
-          #   |> Trace.trace(debug, "LOOKAH", "#{parser.label} doesnt match: #{Context.clip(ctx)}")
-          #   |> Context.add_error(:lookahead_fail, "Could not satisfy: #{parser.label}")
-          #   # %{bad_ctx | status: {:error, }, message: nil}
         end
       end,
       child_info: Parser.child_info_for_telemetry(parser)
@@ -594,9 +631,11 @@ defmodule Ergo.Combinators do
       label,
       fn %Context{} = ctx ->
         case Parser.invoke(ctx, parser) do
+          %Context{status: {:fatal, _}} = fatal_ctx ->
+            fatal_ctx
+
           %Context{status: {:error, _}} = err_ctx ->
             Telemetry.result(err_ctx)
-
             ctx
             |> Context.reset_status()
 
@@ -604,8 +643,6 @@ defmodule Ergo.Combinators do
             ok_ctx
             |> Context.add_error(:lookahead_fail, "Satisfied: #{parser.label}")
 
-          # %Context{status: {:error, _}} -> %{ctx | status: :ok}
-          # %Context{} -> Context.add_error(ctx, :lookahead_fail, "Satisfied: #{parser.label}")
         end
       end,
       child_info: Parser.child_info_for_telemetry(parser)
@@ -642,6 +679,7 @@ defmodule Ergo.Combinators do
           else
             ctx
             |> Context.add_error(:unsatisfied, "Failed to satisfy: #{label}")
+
             # |> Telemetry.error()
           end
         end

@@ -67,7 +67,7 @@ defmodule Ergo.Meta do
             before_fn.(ctx)
             Parser.invoke(ctx, parser)
           end,
-          children: [parser]
+          child_info: Parser.child_info_for_telemetry(parser)
         )
 
       after_fn && !before_fn ->
@@ -80,7 +80,7 @@ defmodule Ergo.Meta do
             after_fn.(ctx, new_ctx)
             new_ctx
           end,
-          children: [parser]
+          child_info: Parser.child_info_for_telemetry(parser)
         )
 
       before_fn && after_fn ->
@@ -94,7 +94,7 @@ defmodule Ergo.Meta do
             after_fn.(ctx, new_ctx)
             new_ctx
           end,
-          children: [parser]
+          child_info: Parser.child_info_for_telemetry(parser)
         )
 
       true ->
@@ -129,7 +129,21 @@ defmodule Ergo.Meta do
           new_ctx
         end
       end,
-      children: [parser]
+      child_info: Parser.child_info_for_telemetry(parser)
+    )
+  end
+
+  @doc """
+  `commit/0` is not technically a parser, rather a sentinel that a sequence
+  can use to determine whether an error is fatal or not
+  """
+  def commit() do
+    Parser.terminal(
+      :commit,
+      "Commit",
+      fn %Context{} = ctx ->
+        ctx
+      end
     )
   end
 

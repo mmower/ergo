@@ -79,15 +79,17 @@ defmodule Ergo.Context do
             data: %{},
             ast: nil,
             parser: nil,
-            tracks: MapSet.new(),
-            depth: 0
+            tracks: %{},
+            depth: 0,
+            parsers: [],
+            commit: 0
 
   @doc """
   `new` returns a newly initialised `Context` with `input` set to the string passed in.
 
   ## Examples:
     iex> alias Ergo.Context
-    iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %MapSet{}} = Context.new("Hello World")
+    iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %{}} = Context.new("Hello World")
   """
   def new(input \\ "", options \\ []) when is_binary(input) do
     created_at = Calendar.strftime(DateTime.utc_now, "%y-%m-%d-%H-%M-%S")
@@ -119,8 +121,16 @@ defmodule Ergo.Context do
     %{ctx | status: :ok, ast: nil}
   end
 
-  def set_parser(%Context{} = ctx, parser) do
-    %{ctx | parser: parser}
+  def push_parser(%Context{parser: parser, parsers: parser_stack} = ctx, %Ergo.Parser{} = next_parser) do
+    %{ctx | parsers: [parser | parser_stack], parser: next_parser}
+  end
+
+  def pop_parser(%Context{parsers: [parent_parser | parser_stack]} = ctx) do
+    %{ctx | parsers: parser_stack, parser: parent_parser}
+  end
+
+  def parent_parser(%Context{parsers: [parent_parser | _]}) do
+    parent_parser
   end
 
   @doc """
@@ -140,15 +150,21 @@ defmodule Ergo.Context do
       iex> assert is_nil(context.ast)
       iex> assert {:error, [{:literal_failed, {1, 1}, "Expected 'end'"}, {:unexpected_char, {1, 1}, "Expected 'e' got '.'"}]} = context.status
   """
-  def add_error(%Context{status: :ok, line: line, col: col} = ctx, code, message) do
-    %{ctx | ast: nil, status: {:error, [{code, {line, col}, message}]}}
+  def add_error(ctx, error_id, message \\ "")
+
+  def add_error(%Context{status: :ok, line: line, col: col} = ctx, error_id, message) do
+    %{ctx | ast: nil, status: {:error, [{error_id, {line, col}, message}]}}
   end
 
-  def add_error(%Context{status: {:error, errors}, line: line, col: col} = ctx, code, message) when is_list(errors) do
-    %{ctx | ast: nil, status: {:error, [{code, {line, col}, message} | errors]}}
+  def add_error(%Context{status: {_, errors}, line: line, col: col} = ctx, error_id, message) when is_list(errors) do
+    %{
+      ctx |
+        ast: nil,
+        status: {:error, [{error_id, {line, col}, message} | errors]}
+    }
   end
 
-  def add_errors(%Context{status: :ok} = ctx, errors) when is_list(errors) do
+  def add_errors(%Context{} = ctx, errors) when is_list(errors) do
     %{ctx | ast: nil, status: {:error, errors}}
   end
 
@@ -159,11 +175,11 @@ defmodule Ergo.Context do
 
     iex> alias Ergo.Context
     iex> parser_ref = 123
-    iex> context = Context.new("Hello World") |> Context.track_parser(parser_ref)
+    iex> context = Context.new("Hello World") |> Context.track_parser(parser_ref, :foo)
     iex> assert Context.parser_tracked?(context, parser_ref)
   """
   def parser_tracked?(%Context{tracks: tracks, index: index}, ref) when is_integer(ref) do
-    MapSet.member?(tracks, {ref, index})
+    Map.has_key?(tracks, {index, ref})
   end
 
   @doc ~S"""
@@ -175,11 +191,13 @@ defmodule Ergo.Context do
       iex> import Ergo.Terminals
       iex> context = Context.new("Hello World")
       iex> parser = literal("Hello")
-      iex> context2 = Context.track_parser(context, parser.ref)
-      iex> assert MapSet.member?(context2.tracks, {parser.ref, 0})
+      iex> context2 = Context.track_parser(context, parser.ref, :foo)
+      iex> assert Map.has_key?(context2.tracks, {0, parser.ref})
   """
-  def track_parser(%Context{tracks: tracks, index: index} = ctx, ref) when is_integer(ref) do
-    %{ctx | tracks: MapSet.put(tracks, {ref, index})}
+  def track_parser(%Context{tracks: tracks, index: index, line: line, col: col} = ctx, ref, data) when is_integer(ref) do
+    %{
+      ctx | tracks: Map.put(tracks, {index, ref}, {line, col, data})
+    }
   end
 
   @doc """
@@ -245,6 +263,18 @@ defmodule Ergo.Context do
     with %Context{status: :ok} = peek_ctx <- next_char(ctx) do
       peek_ctx
     end
+  end
+
+  def set_ast(%Context{} = ctx, new_ast) do
+    %{ctx | ast: new_ast}
+  end
+
+  def commit(%Context{commit: commit_level} = ctx) do
+    %{ctx | commit: commit_level+1}
+  end
+
+  def uncommit(%Context{commit: commit_level} = ctx) when commit_level > 0 do
+    %{ctx | commit: commit_level-1}
   end
 
   @doc ~S"""

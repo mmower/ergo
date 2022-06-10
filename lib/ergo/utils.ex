@@ -46,6 +46,20 @@ defmodule Ergo.Utils do
     end
   end
 
+  def printable_string(s) when is_binary(s) do
+    for <<c <- s>>, c in 32..127, into: "", do: <<c>>
+  end
+
+  def format_tracks(tracks) do
+    Enum.reduce(
+      tracks |> Enum.sort_by(fn {{index, _}, _} -> index end),
+      "",
+      fn {{_index, ref}, {line, col, {type, label}}}, msg ->
+        msg <> "\nL#{line}:#{col} #{type}/#{printable_string(label)}(#{ref})"
+      end
+    )
+  end
+
   # From https://elixirforum.com/t/just-created-a-typeof-module/2583/5
   types =
     ~w[boolean binary bitstring float function integer list map nil pid port reference tuple atom]
