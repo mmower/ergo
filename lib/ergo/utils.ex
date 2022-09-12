@@ -1,26 +1,4 @@
 defmodule Ergo.Utils do
-  @doc """
-  ## Examples
-
-      iex> Ergo.Utils.char_to_string(?H)
-      "H"
-
-      iex> Ergo.Utils.char_to_string(?h)
-      "h"
-
-      iex> Ergo.Utils.char_to_string(?\\r)
-      "\\r"
-
-      iex> Ergo.Utils.char_to_string(?\\n)
-      "\\n"
-
-      iex> Ergo.Utils.char_to_string(?\\t)
-      "\\t"
-  """
-  def char_to_string(c) when is_integer(c) do
-    List.to_string([c])
-  end
-
   @doc ~S"""
   If the string `str` is longer than `max` (default: 40) it is truncated to 37 chars and "..." is added to the end, otherwise it is returned unaltered.
 

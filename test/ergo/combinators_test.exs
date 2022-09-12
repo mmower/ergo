@@ -59,7 +59,7 @@ defmodule Ergo.CombinatorsTest do
                {:fatal,
                 [
                   {:bad_literal, {1, 16}, "literal<bar>"},
-                  {:unexpected_char, {1, 16}, "Expected: r Actual: x"}
+                  {:unexpected_char, {1, 16}, "Expected: |r| Actual: |x|"}
                 ]}
            } = Ergo.parse(p3, "[foo bar foo bax]")
   end

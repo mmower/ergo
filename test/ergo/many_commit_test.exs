@@ -248,7 +248,7 @@ end
 end
 """
 
-    assert %{status: {:fatal, [{:bad_literal, {8, 3}, "stage-end"}, {:unexpected_char, {8, 3}, "Expected: e Actual: @"}]}} = Ergo.parse(theatre(true), input)
+    assert %{status: {:fatal, [{:bad_literal, {8, 3}, "stage-end"}, {:unexpected_char, {8, 3}, "Expected: |e| Actual: |@|"}]}} = Ergo.parse(theatre(true), input)
   end
 
 end
