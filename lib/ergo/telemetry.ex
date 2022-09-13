@@ -94,6 +94,7 @@ defmodule Ergo.Telemetry do
 
   def leave(%Context{
         id: id,
+        status: status,
         created_at: created_at,
         parser: %{type: type, ref: ref, label: label},
         line: line,
@@ -103,6 +104,7 @@ defmodule Ergo.Telemetry do
       } = ctx) do
     :telemetry.execute([:ergo, :leave], %{system_time: System.system_time()}, %{
       id: id,
+      status: status,
       event: :leave,
       depth: depth,
       created_at: created_at,
@@ -147,13 +149,14 @@ defmodule Ergo.Telemetry do
         id: id,
         created_at: created_at,
         parser: %{type: type, ref: ref, label: label},
-        status: {code, errors},
+        status: {code, errors} = status,
         line: line,
         col: col,
         depth: depth,
       } = ctx) when code in [:error, :fatal] do
     :telemetry.execute([:ergo, :error], %{system_time: System.system_time()}, %{
       id: id,
+      status: status,
       event: :error,
       depth: depth,
       created_at: created_at,

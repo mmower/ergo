@@ -214,45 +214,47 @@ defmodule Ergo.Combinators do
   end
 
   defp sequence_reduce(parsers, %Context{} = ctx) when is_list(parsers) do
-    ctx =
-      ctx
-      |> Context.set_ast([])
+    # In this code we pass around a tuple
+    # {commited, ctx}
+    # Committed is a flag which is set to false at the beginning of the reduce
+    # that indicates whether a commit has happened within *this* sequence.
+    #
+    case sequence_reduce_inner(parsers, Context.set_ast(ctx, [])) do
+      {false, reduced_ctx} ->
+        reduced_ctx
 
-    {committed, seq_ctx} =
-      Enum.reduce_while(parsers, {false, ctx}, fn
-        %{type: :commit}, {_, ctx} ->
-          # We don't need to invoke the commit parser, just recognise that
-          # we have seen it
-          {:cont, {true, Context.commit(ctx)}}
-
-        parser, {committed, ctx} ->
-          case {Parser.invoke(ctx, parser), committed} do
-            {%Context{status: :ok, ast: child_ast} = ok_ctx, _} ->
-              # Return the new CTX but prepend the child AST to the old AST
-              {:cont, {committed, %{ok_ctx | ast: [child_ast | ctx.ast]}}}
-
-            {%Context{status: {:fatal, _}} = fatal_ctx, _} ->
-              {:halt, {committed, fatal_ctx}}
-
-            {%Context{status: {:error, _} = status, commit: commit_level} = fatal_ctx, true} when commit_level > 0 ->
-              # Error when committed, convert to fatal error
-              # status =
-              #   status
-              #   |> Tuple.delete_at(0)
-              #   |> Tuple.insert_at(0, :fatal)
-
-              {:halt, {true, %{fatal_ctx | status: put_elem(status, 0, :fatal)}}}
-
-            {%Context{status: {:error, _}} = err_ctx, false} ->
-              # Regular error, halt and report back
-              {:halt, {false, err_ctx}}
-          end
-      end)
-
-    case committed do
-      false -> seq_ctx
-      true -> Context.uncommit(seq_ctx)
+      {true, reduced_ctx} ->
+        Context.uncommit(reduced_ctx)
     end
+  end
+
+  defp sequence_reduce_inner(parsers, ctx) do
+    Enum.reduce_while(parsers, {false, ctx}, fn
+      %{type: :commit}, {_, ctx} ->
+        # We don't need to invoke the commit parser, just recognise that
+        # we have seen it, -> {true, _}
+        {:cont, {true, Context.commit(ctx)}}
+
+      parser, {committed, ctx} ->
+        case {Parser.invoke(ctx, parser), committed} do
+          {%Context{status: :ok, ast: child_ast} = ok_ctx, _} ->
+            # Return the new CTX but prepend the child AST to the old AST
+            {:cont, {committed, %{ok_ctx | ast: [child_ast | ctx.ast]}}}
+
+          {%Context{status: {:fatal, _}} = fatal_ctx, _} ->
+            {:halt, {committed, fatal_ctx}}
+
+          {%Context{status: {:error, _} = status, commit: commit_level} = fatal_ctx, true} when commit_level > 0 ->
+            # Error when committed, convert to fatal error
+            fatal_ctx = %{fatal_ctx | status: put_elem(status, 0, :fatal)}
+            Telemetry.event(fatal_ctx, :fatal, %{info: "Error while commit_level > 0", status: fatal_ctx.status})
+            {:halt, {true, fatal_ctx}}
+
+          {%Context{status: {:error, _}} = err_ctx, false} ->
+            # Regular error, halt and report back
+            {:halt, {false, err_ctx}}
+        end
+    end)
   end
 
   @doc """

@@ -60,26 +60,26 @@ defmodule Ergo.OutlineTest do
       |> Ergo.Outline.Builder.walk(&Ergo.Outline.OPML.generate_node/2)
 
     assert [
-      "<outline event=\"enter\" pos=\"1:1\" input=\"42\" match=\"\" info=\"\" text=\"sequence/sequence&lt;digit, digit&gt;\">\n",
+      "<outline event=\"enter\" status=\"\" pos=\"1:1\" input=\"42\" match=\"\" info=\"\" text=\"sequence/sequence&lt;digit, digit&gt;\">\n",
       [
         [
-          "  <outline event=\"enter\" pos=\"1:1\" input=\"42\" match=\"\" info=\"\" text=\"char_range/digit\">\n",
+          "  <outline event=\"enter\" status=\"\" pos=\"1:1\" input=\"42\" match=\"\" info=\"\" text=\"char_range/digit\">\n",
           [
-            "    <outline event=\"match\" pos=\"1:2\" input=\"\" match=\"integer: 52\" info=\"\" text=\"char_range/digit\" />\n",
-            "    <outline event=\"leave\" pos=\"1:2\" input=\"\" match=\"\" info=\"\" text=\"char_range/digit\" />\n"
+            "    <outline event=\"match\" status=\"\" pos=\"1:2\" input=\"\" match=\"integer: 52\" info=\"\" text=\"char_range/digit\" />\n",
+            "    <outline event=\"leave\" status=\"ok\" pos=\"1:2\" input=\"\" match=\"\" info=\"\" text=\"char_range/digit\" />\n"
           ],
           ["  ", "</outline>\n"]
         ],
         [
-          "  <outline event=\"enter\" pos=\"1:2\" input=\"2\" match=\"\" info=\"\" text=\"char_range/digit\">\n",
+          "  <outline event=\"enter\" status=\"\" pos=\"1:2\" input=\"2\" match=\"\" info=\"\" text=\"char_range/digit\">\n",
           [
-            "    <outline event=\"match\" pos=\"1:3\" input=\"\" match=\"integer: 50\" info=\"\" text=\"char_range/digit\" />\n",
-            "    <outline event=\"leave\" pos=\"1:3\" input=\"\" match=\"\" info=\"\" text=\"char_range/digit\" />\n"
+            "    <outline event=\"match\" status=\"\" pos=\"1:3\" input=\"\" match=\"integer: 50\" info=\"\" text=\"char_range/digit\" />\n",
+            "    <outline event=\"leave\" status=\"ok\" pos=\"1:3\" input=\"\" match=\"\" info=\"\" text=\"char_range/digit\" />\n"
           ],
           ["  ", "</outline>\n"]
         ],
-        "  <outline event=\"match\" pos=\"1:3\" input=\"\" match=\"list: '42'\" info=\"\" text=\"sequence/sequence&lt;digit, digit&gt;\" />\n",
-        "  <outline event=\"leave\" pos=\"1:3\" input=\"\" match=\"\" info=\"\" text=\"sequence/sequence&lt;digit, digit&gt;\" />\n"
+        "  <outline event=\"match\" status=\"\" pos=\"1:3\" input=\"\" match=\"list: '42'\" info=\"\" text=\"sequence/sequence&lt;digit, digit&gt;\" />\n",
+        "  <outline event=\"leave\" status=\"ok\" pos=\"1:3\" input=\"\" match=\"\" info=\"\" text=\"sequence/sequence&lt;digit, digit&gt;\" />\n"
       ],
       ["", "</outline>\n"]
     ] = outline

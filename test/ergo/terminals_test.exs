@@ -32,4 +32,11 @@ defmodule Ergo.TerminalsTest do
     end
   end
 
+  test "adds errors properly" do
+    alias Ergo.Context
+    import Ergo.Terminals
+    parser = literal("Hello")
+    assert %Context{status: {:error, [{:bad_literal, {1, 5}, "literal<Hello>"}, {:unexpected_char, {1, 5}, "Expected: |o| Actual: |x|"}]}, input: "x World", index: 4, line: 1, col: 5} = Ergo.parse(parser, "Hellx World")
+  end
+
 end

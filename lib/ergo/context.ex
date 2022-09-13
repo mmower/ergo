@@ -138,17 +138,17 @@ defmodule Ergo.Context do
       iex> alias Ergo.Context
       iex> context =
       ...>  Context.new("Hello World")
-      ...>  |> Context.add_error(:unexpected_char, "Expected 'e' got '.'")
+      ...>  |> Context.add_error(:unexpected_char, "Expected: |e| Actual: |.|")
       iex> assert is_nil(context.ast)
-      iex> assert {:error, [{:unexpected_char, {1, 1}, "Expected 'e' got '.'"}]} = context.status
+      iex> assert {:error, [{:unexpected_char, {1, 1}, "Expected: |e| Actual: |.|"}]} = context.status
 
       iex> alias Ergo.Context
       iex> context =
       ...>  Context.new("Hello World")
-      ...>  |> Context.add_error(:unexpected_char, "Expected 'e' got '.'")
+      ...>  |> Context.add_error(:unexpected_char, "Expected: |e| Actual: |.|")
       ...>  |> Context.add_error(:literal_failed, "Expected 'end'")
       iex> assert is_nil(context.ast)
-      iex> assert {:error, [{:literal_failed, {1, 1}, "Expected 'end'"}, {:unexpected_char, {1, 1}, "Expected 'e' got '.'"}]} = context.status
+      iex> assert {:error, [{:literal_failed, {1, 1}, "Expected 'end'"}, {:unexpected_char, {1, 1}, "Expected: |e| Actual: |.|"}]} = context.status
   """
   def add_error(ctx, error_id, message \\ "")
 
@@ -156,16 +156,8 @@ defmodule Ergo.Context do
     %{ctx | ast: nil, status: {:error, [{error_id, {line, col}, message}]}}
   end
 
-  def add_error(%Context{status: {_, errors}, line: line, col: col} = ctx, error_id, message) when is_list(errors) do
-    %{
-      ctx |
-        ast: nil,
-        status: {:error, [{error_id, {line, col}, message} | errors]}
-    }
-  end
-
-  def add_errors(%Context{} = ctx, errors) when is_list(errors) do
-    %{ctx | ast: nil, status: {:error, errors}}
+  def add_error(%Context{status: {code, errors}, line: line, col: col} = ctx, error_id, message) do
+    %{ctx | ast: nil, status: {code, [{error_id, {line, col}, message} | errors]}}
   end
 
   @doc ~S"""

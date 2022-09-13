@@ -390,32 +390,34 @@ defmodule Ergo.Terminals do
     map_fn = Keyword.get(opts, :map, nil)
     label = Keyword.get(opts, :label, "literal<#{s}>")
 
+    char_parsers = Enum.map(String.to_charlist(s), &(char(&1)))
+
     Parser.terminal(
       :literal,
       label,
       fn %Context{} = ctx ->
-        with %Context{status: :ok} = new_ctx <-
-               literal_reduce(String.to_charlist(s), %{ctx | ast: []}) do
-          new_ctx
-          |> Context.ast_in_parsed_order()
-          |> Context.ast_to_string()
-          |> Context.ast_transform(map_fn)
-        else
-          %Context{} = err_ctx ->
+        case reduce_chars(char_parsers, ctx) do
+          %{status: :ok} = ok_ctx ->
+            ok_ctx
+            |> Context.ast_in_parsed_order()
+            |> Context.ast_to_string()
+            |> Context.ast_transform(map_fn)
+
+          %{status: {:error, _}} = err_ctx ->
             Context.add_error(err_ctx, :bad_literal, label)
         end
       end
     )
   end
 
-  defp literal_reduce(chars, ctx) do
-    Enum.reduce_while(chars, ctx, fn c, ctx ->
-      case Parser.invoke(ctx, char(c)) do
-        %Context{status: :ok} = new_ctx ->
-          {:cont, %{new_ctx | ast: [new_ctx.ast | ctx.ast]}}
+  defp reduce_chars(char_parsers, ctx) do
+    Enum.reduce_while(char_parsers, %{ctx | ast: []}, fn char_parser, ctx ->
+      case Parser.invoke(ctx, char_parser) do
+        %Context{status: :ok} = ok_ctx ->
+          {:cont, %{ok_ctx | ast: [ok_ctx.ast | ctx.ast]}}
 
-        %Context{status: {:error, errors}} ->
-          {:halt, Context.add_errors(ctx, errors)}
+        %Context{status: {:error, [{error_id, {_line, _col}, message}]}} ->
+          {:halt, Context.add_error(ctx, error_id, message)}
       end
     end)
   end

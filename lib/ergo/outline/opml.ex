@@ -2,6 +2,11 @@ defmodule Ergo.Outline.OPML do
   alias Ergo.Outline.Builder
   require IEx
 
+  # Note that there are three tag statuses
+  # open -> an open tag e.g. <foo>
+  # close -> a close tag e.g. </foo>
+  # closed -> a tag that isn't open e.g. <foo />
+
   def generate_opml(id, events) do
     outline =
       events
@@ -22,6 +27,10 @@ defmodule Ergo.Outline.OPML do
     |> to_xml_attr_value()
   end
 
+  def opml_event_status(""), do: ""
+  def opml_event_status(:ok), do: "ok"
+  def opml_event_status({code, _}), do: to_string(code)
+
   def opml_event_match(match), do: to_xml_attr_value(match)
 
   def opml_event_info(info) when not is_binary(info), do: to_xml_attr_value(inspect(info))
@@ -34,10 +43,12 @@ defmodule Ergo.Outline.OPML do
   def opml_event_tagend(true), do: "\">\n"
   def opml_event_tagend(false), do: "\" />\n"
 
-  def generate_opml_node(depth, event, parser, label, line, col, input, match, info, open_tag) do
+  def generate_opml_node(depth, event, status, parser, label, line, col, input, match, info, open_tag) do
     String.duplicate("  ", depth) <>
     "<outline event=\"" <>
     opml_event_name(event) <>
+    "\" status=\"" <>
+    opml_event_status(status) <>
     "\" pos=\"" <>
     opml_event_pos(line, col) <>
     "\" input=\"" <>
@@ -52,36 +63,36 @@ defmodule Ergo.Outline.OPML do
   end
 
   def generate_node(%{event: :enter, type: parser, label: label, line: line, col: col, depth: depth, input: input}, :open) do
-    generate_opml_node(depth, :enter, parser, label, line, col, input, "", "", true)
+    generate_opml_node(depth, :enter, "", parser, label, line, col, input, "", "", true)
   end
 
   def generate_node(%{event: :enter, type: parser, label: label, line: line, col: col, depth: depth, input: input}, :closed) do
-    generate_opml_node(depth, :enter, parser, label, line, col, input, "", "", false)
+    generate_opml_node(depth, :enter, "", parser, label, line, col, input, "", "", false)
   end
 
   def generate_node(%{event: :match, type: parser, label: label, line: line, col: col, depth: depth, ast: nil}, _) do
-    generate_opml_node(depth, :match, parser, label, line, col, "", "*ignore*", "", false)
+    generate_opml_node(depth, :match, "", parser, label, line, col, "", "*ignore*", "", false)
   end
 
   def generate_node(%{event: :match, type: parser, label: label, line: line, col: col, depth: depth, ast: ast}, _) do
-    generate_opml_node(depth, :match, parser, label, line, col, "", "#{Ergo.Utils.typeof(ast)}: #{inspect(ast)}", "", false)
+    generate_opml_node(depth, :match, "", parser, label, line, col, "", "#{Ergo.Utils.typeof(ast)}: #{inspect(ast)}", "", false)
   end
 
-  def generate_node(%{event: :error, type: parser, label: label, line: line, col: col, depth: depth, errors: errors}, _) do
+  def generate_node(%{event: :error, status: status, type: parser, label: label, line: line, col: col, depth: depth, errors: errors}, _) do
     try do
-      generate_opml_node(depth, :error, parser, label, line, col, "", "", errors, false)
+      generate_opml_node(depth, :error, status, parser, label, line, col, "", "", errors, false)
     catch
       :exit, _ -> "not really"
     end
   end
 
-  def generate_node(%{event: :leave, type: parser, label: label, line: line, col: col, depth: depth}, _) do
-    generate_opml_node(depth, :leave, parser, label, line, col, "", "", "", false)
+  def generate_node(%{event: :leave, status: status, type: parser, label: label, line: line, col: col, depth: depth}, _) do
+    generate_opml_node(depth, :leave, status, parser, label, line, col, "", "", "", false)
   end
 
   def generate_node(%{event: :event, user_event: event, details: details, type: parser, label: label, line: line, col: col, depth: depth}, _) do
     try do
-      generate_opml_node(depth, event, parser, label, line, col, "", "", details, false)
+      generate_opml_node(depth, event, "", parser, label, line, col, "", "", details, false)
     catch
       :exit, _ -> "not really"
     end
