@@ -98,6 +98,9 @@ defmodule Ergo.Numeric do
       iex> assert %{status: :ok, ast: 42} = Ergo.parse(number(), "42")
 
       iex> import Ergo.Numeric
+      iex> assert %{status: :ok, ast: 42} = Ergo.parse(number(), "+42")
+
+      iex> import Ergo.Numeric
       iex> assert %{status: :ok, ast: -42} = Ergo.parse(number(), "-42")
 
       iex> import Ergo.Numeric
@@ -123,7 +126,12 @@ defmodule Ergo.Numeric do
 
     sequence(
       [
-        optional(char(?-), ast: fn _ -> -1 end, label: "?-"),
+        optional(
+          choice([
+            char(?+) |> transform(fn _ -> 1 end),
+            char(?-) |> transform(fn _ -> -1 end)
+          ])
+        ),
         choice(
           [
             decimal(),

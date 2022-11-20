@@ -96,7 +96,7 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Terminals, Combinators}
       iex> parser = choice([literal("Foo"), literal("Bar")], label: "Foo|Bar")
       iex> context = Ergo.parse(parser, "Hello World")
-      iex> %Context{status: {:error, [{:no_valid_choice, {1, 1}, "Foo|Bar cannot be applied"}]}, ast: nil, input: "Hello World"} = context
+      iex> %Context{status: {:error, [{:no_valid_choice, {1, 1}, "Foo|Bar did not find a valid choice"}]}, ast: nil, input: "Hello World"} = context
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
     validate_parsers(parsers)
@@ -124,7 +124,7 @@ defmodule Ergo.Combinators do
   defp apply_parsers_in_turn(parsers, %Context{} = ctx, label) do
     Enum.reduce_while(
       parsers,
-      Context.add_error(ctx, :no_valid_choice, "#{label} cannot be applied"),
+      Context.add_error(ctx, :no_valid_choice, "#{label} did not find a valid choice"),
       fn %Parser{} = parser, %Context{} = ctx ->
         case Parser.invoke(ctx, parser) do
           %Context{status: :ok} = new_ctx ->
