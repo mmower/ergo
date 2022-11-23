@@ -186,6 +186,7 @@ defmodule Ergo.Terminals do
 
   def char(l, opts) when is_list(l) do
     label = Keyword.get(opts, :label, "[#{inspect(l)}]")
+    parsers = Enum.map(l, fn c -> char(c) end)
 
     Parser.terminal(
       :char_list,
@@ -194,8 +195,8 @@ defmodule Ergo.Terminals do
         with %Context{status: :ok} = peek_ctx <- Context.peek(ctx) do
           err_ctx = Context.add_error(ctx, :unexpected_char, "Expected: #{describe_char_match(l)} Actual: #{describe_char_match(peek_ctx.ast)}")
 
-          Enum.reduce_while(l, err_ctx, fn matcher, err_ctx ->
-            case Parser.invoke(ctx, char(matcher)) do
+          Enum.reduce_while(parsers, err_ctx, fn char_matcher, err_ctx ->
+            case Parser.invoke(ctx, char_matcher) do
               %Context{status: :ok} = new_ctx -> {:halt, new_ctx}
               _no_match -> {:cont, err_ctx}
             end

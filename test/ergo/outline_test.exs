@@ -8,7 +8,8 @@ defmodule Ergo.OutlineTest do
   test "turns events into tree" do
     Telemetry.start()
     parser = Combinators.sequence([Terminals.digit(), Terminals.digit()])
-    %{status: :ok, id: id} = Ergo.parse(parser, "42")
+    input = "42"
+    %{status: :ok, id: id} = Ergo.parse(parser, input)
 
     tree =
       id

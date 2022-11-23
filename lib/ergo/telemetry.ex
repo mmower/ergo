@@ -1,8 +1,6 @@
 defmodule Ergo.Telemetry do
   alias Ergo.Context
 
-  @input_length 80
-
   defdelegate get_events(id), to: Ergo.TelemetryServer
 
   def start() do
@@ -13,9 +11,10 @@ defmodule Ergo.Telemetry do
         id: id,
         created_at: created_at,
         parser: %{type: :many, ref: ref, label: label, min: min, max: max, child_info: child_info},
+        input: _input,
+        index: index,
         line: line,
         col: col,
-        input: input,
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :enter], %{system_time: System.system_time()}, %{
@@ -26,10 +25,11 @@ defmodule Ergo.Telemetry do
       created_at: created_at,
       ref: ref,
       combinator: true,
+      input: "",
       label: label,
+      index: index,
       line: line,
       col: col,
-      input: String.slice(input, 0..@input_length),
       min: min,
       max: max,
       child_info: child_info
@@ -42,9 +42,10 @@ defmodule Ergo.Telemetry do
         id: id,
         created_at: created_at,
         parser: %{combinator: true, ref: ref, type: type, label: label, child_info: child_info},
+        input: _input,
+        index: index,
         line: line,
         col: col,
-        input: input,
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :enter], %{system_time: System.system_time()}, %{
@@ -56,9 +57,10 @@ defmodule Ergo.Telemetry do
       type: type,
       combinator: true,
       label: label,
+      input: "",
+      index: index,
       line: line,
       col: col,
-      input: String.slice(input, 0..@input_length),
       child_info: child_info
     })
 
@@ -69,9 +71,10 @@ defmodule Ergo.Telemetry do
         id: id,
         created_at: created_at,
         parser: %{combinator: false, ref: ref, type: type, label: label, child_info: child_info},
+        input: _input,
+        index: index,
         line: line,
         col: col,
-        input: input,
         depth: depth
       } = ctx) do
     :telemetry.execute([:ergo, :enter], %{system_time: System.system_time()}, %{
@@ -83,9 +86,10 @@ defmodule Ergo.Telemetry do
       type: type,
       combinator: false,
       label: label,
+      input: "",
+      index: index,
       line: line,
       col: col,
-      input: String.slice(input, 0..@input_length),
       child_info: child_info
     })
 
@@ -97,6 +101,8 @@ defmodule Ergo.Telemetry do
         status: status,
         created_at: created_at,
         parser: %{type: type, ref: ref, label: label},
+        input: _input,
+        index: index,
         line: line,
         col: col,
         ast: ast,
@@ -111,6 +117,8 @@ defmodule Ergo.Telemetry do
       ref: ref,
       type: type,
       label: label,
+      input: "",
+      index: index,
       line: line,
       col: col,
       ast: ast
@@ -124,6 +132,8 @@ defmodule Ergo.Telemetry do
         id: id,
         created_at: created_at,
         parser: %{type: type, ref: ref, label: label},
+        input: _input,
+        index: index,
         line: line,
         col: col,
         ast: ast,
@@ -137,6 +147,8 @@ defmodule Ergo.Telemetry do
       ref: ref,
       type: type,
       label: label,
+      input: "",
+      index: index,
       line: line,
       col: col,
       ast: ast
@@ -150,6 +162,8 @@ defmodule Ergo.Telemetry do
         created_at: created_at,
         parser: %{type: type, ref: ref, label: label},
         status: {code, errors} = status,
+        input: _input,
+        index: index,
         line: line,
         col: col,
         depth: depth,
@@ -162,6 +176,8 @@ defmodule Ergo.Telemetry do
       created_at: created_at,
       ref: ref,
       type: type,
+      input: "",
+      index: index,
       label: label,
       line: line,
       col: col,
@@ -175,6 +191,8 @@ defmodule Ergo.Telemetry do
     id: id,
     created_at: created_at,
     parser: %{type: type, ref: ref, label: label},
+    input: _input,
+    index: index,
     line: line,
     col: col,
     depth: depth
@@ -188,6 +206,8 @@ defmodule Ergo.Telemetry do
       created_at: created_at,
       ref: ref,
       type: type,
+      input: "",
+      index: index,
       label: label,
       line: line,
       col: col

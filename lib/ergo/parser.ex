@@ -78,7 +78,7 @@ defmodule Ergo.Parser do
     |> Context.push_parser(parser)
     |> Telemetry.enter()
     |> Context.reset_status()
-    |> track_parser()
+    # |> track_parser()
     |> push_entry_point()
     |> parser_fn.()
     |> pop_entry_point()
