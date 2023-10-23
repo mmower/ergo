@@ -77,7 +77,7 @@ defmodule Ergo.Context do
             col: 1,
             entry_points: [],
             data: %{},
-            ast: nil,
+            ast: Ergo.Nil,
             parser: nil,
             tracks: %{},
             depth: 0,
@@ -115,10 +115,10 @@ defmodule Ergo.Context do
       iex> context = Context.new("Hello World")
       iex> context = %{context | status: {:error, [{:inexplicable_error, "What the…"}]}, ast: true}
       iex> context = Context.reset_status(context)
-      iex> assert %Context{status: :ok, ast: nil} = context
+      iex> assert %Context{status: :ok, ast: Ergo.Nil} = context
   """
   def reset_status(%Context{} = ctx) do
-    %{ctx | status: :ok, ast: nil}
+    %{ctx | status: :ok, ast: Ergo.Nil}
   end
 
   def push_parser(%Context{parser: parser, parsers: parser_stack} = ctx, %Ergo.Parser{} = next_parser) do
@@ -139,7 +139,7 @@ defmodule Ergo.Context do
       iex> context =
       ...>  Context.new("Hello World")
       ...>  |> Context.add_error(:unexpected_char, "Expected: |e| Actual: |.|")
-      iex> assert is_nil(context.ast)
+      iex> assert context.ast == Ergo.Nil
       iex> assert {:error, [{:unexpected_char, {1, 1}, "Expected: |e| Actual: |.|"}]} = context.status
 
       iex> alias Ergo.Context
@@ -147,17 +147,17 @@ defmodule Ergo.Context do
       ...>  Context.new("Hello World")
       ...>  |> Context.add_error(:unexpected_char, "Expected: |e| Actual: |.|")
       ...>  |> Context.add_error(:literal_failed, "Expected 'end'")
-      iex> assert is_nil(context.ast)
+      iex> assert context.ast == Ergo.Nil
       iex> assert {:error, [{:literal_failed, {1, 1}, "Expected 'end'"}, {:unexpected_char, {1, 1}, "Expected: |e| Actual: |.|"}]} = context.status
   """
   def add_error(ctx, error_id, message \\ "")
 
   def add_error(%Context{status: :ok, line: line, col: col} = ctx, error_id, message) do
-    %{ctx | ast: nil, status: {:error, [{error_id, {line, col}, message}]}}
+    %{ctx | ast: Ergo.Nil, status: {:error, [{error_id, {line, col}, message}]}}
   end
 
   def add_error(%Context{status: {code, errors}, line: line, col: col} = ctx, error_id, message) do
-    %{ctx | ast: nil, status: {code, [{error_id, {line, col}, message} | errors]}}
+    %{ctx | ast: Ergo.Nil, status: {code, [{error_id, {line, col}, message} | errors]}}
   end
 
   @doc ~S"""
@@ -274,11 +274,11 @@ defmodule Ergo.Context do
   Call this function to remove them
 
   ## Examples
-      iex> context = Ergo.Context.new("", ast: ["Hello", nil, "World", nil])
+      iex> context = Ergo.Context.new("", ast: ["Hello", Ergo.Nil, "World", Ergo.Nil])
       iex> assert %Context{ast: ["Hello", "World"]} = Context.ast_without_ignored(context)
   """
   def ast_without_ignored(%Context{ast: ast} = ctx) do
-    %{ctx | ast: Enum.reject(ast, &is_nil/1)}
+    %{ctx | ast: Enum.reject(ast, fn x -> x == Ergo.Nil end)}
   end
 
   @doc ~S"""

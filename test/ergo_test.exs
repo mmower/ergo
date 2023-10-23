@@ -23,7 +23,7 @@ defmodule ErgoTest do
 
     minus = optional(char(?-)) |> transform(fn ast ->
       case ast do
-        nil -> 1
+        Ergo.Nil -> 1
         45 -> -1
       end
     end)

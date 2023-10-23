@@ -96,7 +96,7 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Terminals, Combinators}
       iex> parser = choice([literal("Foo"), literal("Bar")], label: "Foo|Bar")
       iex> context = Ergo.parse(parser, "Hello World")
-      iex> %Context{status: {:error, [{:no_valid_choice, {1, 1}, "Foo|Bar did not find a valid choice"}]}, ast: nil, input: "Hello World"} = context
+      iex> %Context{status: {:error, [{:no_valid_choice, {1, 1}, "Foo|Bar did not find a valid choice"}]}, ast: Ergo.Nil, input: "Hello World"} = context
   """
   def choice(parsers, opts \\ []) when is_list(parsers) do
     validate_parsers(parsers)
@@ -280,7 +280,7 @@ defmodule Ergo.Combinators do
       fn ctx ->
         with %Context{status: :ok} = ok_ctx <- Parser.invoke(ctx, parser) do
           ok_ctx
-          |> Context.ast_transform(fn ast -> List.first(ast) end)
+          |> Context.ast_transform(fn ast -> List.first(ast, Ergo.Nil) end)
         end
       end,
       child_info: Parser.child_info_for_telemetry(parser)
@@ -307,7 +307,7 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Combinators, Terminals}
       iex> parser = many(wc(), min: 6)
       iex> context = Ergo.parse(parser, "Hello World")
-      iex> assert %Context{status: {:error, [{:many_less_than_min, {1, 6}, "5 < 6"}]}, ast: nil, input: " World", index: 5, col: 6} = context
+      iex> assert %Context{status: {:error, [{:many_less_than_min, {1, 6}, "5 < 6"}]}, ast: Ergo.Nil, input: " World", index: 5, col: 6} = context
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.{Combinators, Terminals}
@@ -403,7 +403,7 @@ defmodule Ergo.Combinators do
       iex> ctx = Context.new(" World", ast: [])
       iex> parser = optional(literal("Hello"))
       iex> new_context = Parser.invoke(ctx, parser)
-      iex> assert %Context{status: :ok, ast: nil, input: " World", index: 0, col: 1} = new_context
+      iex> assert %Context{status: :ok, ast: Ergo.Nil, input: " World", index: 0, col: 1} = new_context
   """
   def optional(%Parser{} = parser, opts \\ []) do
     label = Keyword.get(opts, :label, "optional<#{parser.label}>")
@@ -453,7 +453,7 @@ defmodule Ergo.Combinators do
       label,
       fn %Context{} = ctx ->
         with %Context{status: :ok} = new_ctx <- Parser.invoke(ctx, parser) do
-          %{new_ctx | ast: nil}
+          %{new_ctx | ast: Ergo.Nil}
         end
       end,
       child_info: Parser.child_info_for_telemetry(parser)
@@ -577,7 +577,7 @@ defmodule Ergo.Combinators do
       iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}
       iex> parser = lookahead(literal("Hello"))
-      iex> assert %Context{status: :ok, ast: nil, input: "Hello World", index: 0} = Ergo.parse(parser, "Hello World")
+      iex> assert %Context{status: :ok, ast: Ergo.Nil, input: "Hello World", index: 0} = Ergo.parse(parser, "Hello World")
 
       iex> alias Ergo.Context
       iex> import Ergo.{Combinators, Terminals}

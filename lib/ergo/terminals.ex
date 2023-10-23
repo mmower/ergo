@@ -18,7 +18,7 @@ defmodule Ergo.Terminals do
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
       iex> ctx = Context.new("")
-      iex> assert %Context{status: :ok, ast: nil} = Parser.invoke(ctx, eoi())
+      iex> assert %Context{status: :ok, ast: Ergo.Nil} = Parser.invoke(ctx, eoi())
 
       iex> alias Ergo.{Context, Parser}
       iex> import Ergo.Terminals
@@ -31,7 +31,7 @@ defmodule Ergo.Terminals do
       "eoi",
       fn
         %Context{input: ""} = ctx ->
-          %{ctx | status: :ok, ast: nil}
+          %{ctx | status: :ok, ast: Ergo.Nil}
 
         %Context{input: input} = ctx ->
           Context.add_error(ctx, :not_eoi, "Input not empty: #{ellipsize(input)}")

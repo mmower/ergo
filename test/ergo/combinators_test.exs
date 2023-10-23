@@ -4,6 +4,7 @@ defmodule Ergo.CombinatorsTest do
 
   alias Ergo
   import Ergo.{Combinators, Terminals, Meta}
+  alias Ergo.Context
 
   @doc """
   We had a case where we accidentally used the Kernel.binding function instead of a
@@ -102,5 +103,15 @@ defmodule Ergo.CombinatorsTest do
       ], label: "expr")
 
     assert %{status: {:fatal, [{:unexpected_char, {1, 5}, _}]}} = Ergo.parse(fake_expr, "def # do foo end")
+  end
+
+  test "parses nil" do
+    assert %Context{status: :ok, ast: nil} = Ergo.parse(replace(literal("nil"), nil), "nil")
+  end
+
+  test "hoisting an empty sequence returns nil" do
+    empty_sequence = sequence([ignore(literal("1"))])
+
+    assert %Context{status: :ok, ast: Ergo.Nil} = Ergo.parse(hoist(empty_sequence), "1")
   end
 end
