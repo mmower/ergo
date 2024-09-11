@@ -64,6 +64,10 @@ defmodule Ergo.Context do
   As nested parsers are called the depth field will be updated to reflect the
   number of levels of nesting for the current parser.
 
+  * `captures`
+
+  A map of data that can be captured from ASTs using the capture parser.
+
   """
 
   defstruct id: nil,
@@ -82,7 +86,8 @@ defmodule Ergo.Context do
             tracks: %{},
             depth: 0,
             parsers: [],
-            commit: 0
+            commit: 0,
+            captures: %{}
 
   @doc """
   `new` returns a newly initialised `Context` with `input` set to the string passed in.
@@ -92,7 +97,7 @@ defmodule Ergo.Context do
     iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %{}} = Context.new("Hello World")
   """
   def new(input \\ "", options \\ []) when is_binary(input) do
-    created_at = Calendar.strftime(DateTime.utc_now, "%y-%m-%d-%H-%M-%S")
+    created_at = Calendar.strftime(DateTime.utc_now(), "%y-%m-%d-%H-%M-%S")
 
     id = Keyword.get(options, :id, created_at)
     ast = Keyword.get(options, :ast, nil)
@@ -121,7 +126,10 @@ defmodule Ergo.Context do
     %{ctx | status: :ok, ast: nil}
   end
 
-  def push_parser(%Context{parser: parser, parsers: parser_stack} = ctx, %Ergo.Parser{} = next_parser) do
+  def push_parser(
+        %Context{parser: parser, parsers: parser_stack} = ctx,
+        %Ergo.Parser{} = next_parser
+      ) do
     %{ctx | parsers: [parser | parser_stack], parser: next_parser}
   end
 
@@ -186,9 +194,11 @@ defmodule Ergo.Context do
       iex> context2 = Context.track_parser(context, parser.ref, :foo)
       iex> assert Map.has_key?(context2.tracks, {0, parser.ref})
   """
-  def track_parser(%Context{tracks: tracks, index: index, line: line, col: col} = ctx, ref, data) when is_integer(ref) do
+  def track_parser(%Context{tracks: tracks, index: index, line: line, col: col} = ctx, ref, data)
+      when is_integer(ref) do
     %{
-      ctx | tracks: Map.put(tracks, {index, ref}, {line, col, data})
+      ctx
+      | tracks: Map.put(tracks, {index, ref}, {line, col, data})
     }
   end
 
@@ -262,11 +272,11 @@ defmodule Ergo.Context do
   end
 
   def commit(%Context{commit: commit_level} = ctx) do
-    %{ctx | commit: commit_level+1}
+    %{ctx | commit: commit_level + 1}
   end
 
   def uncommit(%Context{commit: commit_level} = ctx) when commit_level > 0 do
-    %{ctx | commit: commit_level-1}
+    %{ctx | commit: commit_level - 1}
   end
 
   @doc ~S"""

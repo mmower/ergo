@@ -60,6 +60,7 @@ defmodule Ergo.Meta do
     cond do
       before_fn && !after_fn ->
         label = Keyword.get(opts, :label, "before<#{parser.label}>")
+
         Parser.combinator(
           :before,
           label,
@@ -72,6 +73,7 @@ defmodule Ergo.Meta do
 
       after_fn && !before_fn ->
         label = Keyword.get(opts, :label, "after<#{parser.label}>")
+
         Parser.combinator(
           :after,
           label,
@@ -85,6 +87,7 @@ defmodule Ergo.Meta do
 
       before_fn && after_fn ->
         Keyword.get(opts, :label, "around<#{parser.label}>")
+
         Parser.combinator(
           :around,
           label,
@@ -100,7 +103,6 @@ defmodule Ergo.Meta do
       true ->
         raise "Must specify either or both of before: fn ctx -> end or after: fn ctx, new_ctx -> end in around"
     end
-
   end
 
   @doc ~S"""
@@ -147,4 +149,27 @@ defmodule Ergo.Meta do
     )
   end
 
+  @doc """
+  `capture/2` is used to hoist AST values (possibly transformed by the t_fn)
+  into the context. For example this can be used in a sequence where you want
+  to communicate information forward in the sequence.
+
+  Example: You want to parse <a>...</a>. To correctly parse </a> you need to
+  know that <a> was used to open the pair.
+  """
+  def capture(parser, key, t_fn \\ &Function.identity/1) do
+    Parser.combinator(
+      :capture,
+      "capture-#{key}",
+      fn %Context{} = ctx ->
+        case Parser.invoke(ctx, parser) do
+          %Context{status: :ok, ast: ast, captures: captures} = ctx ->
+            %{ctx | captures: Map.put(captures, key, t_fn.(ast))}
+
+          %Context{} = ctx ->
+            ctx
+        end
+      end
+    )
+  end
 end

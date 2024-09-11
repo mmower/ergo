@@ -131,7 +131,11 @@ defmodule Ergo.Terminals do
             new_ctx
 
           %Context{status: :ok, ast: u} ->
-            Context.add_error(ctx, :unexpected_char, "Expected: #{describe_char_match(c)} Actual: #{describe_char_match(u)}")
+            Context.add_error(
+              ctx,
+              :unexpected_char,
+              "Expected: #{describe_char_match(c)} Actual: #{describe_char_match(u)}"
+            )
 
           %Context{status: {:error, _}} = new_ctx ->
             new_ctx
@@ -151,7 +155,11 @@ defmodule Ergo.Terminals do
       fn ctx ->
         case Context.next_char(ctx) do
           %Context{status: :ok, ast: ^c} ->
-            Context.add_error(ctx, :unexpected_char, "Should not have matched #{describe_char_match(c)}")
+            Context.add_error(
+              ctx,
+              :unexpected_char,
+              "Should not have matched #{describe_char_match(c)}"
+            )
 
           %Context{status: :ok, ast: _} = new_ctx ->
             new_ctx
@@ -175,7 +183,11 @@ defmodule Ergo.Terminals do
             new_ctx
 
           %Context{status: :ok, ast: c} ->
-            Context.add_error(ctx, :unexpected_char, "Expected: #{describe_char_match(min..max)} Actual: #{describe_char_match(c)}")
+            Context.add_error(
+              ctx,
+              :unexpected_char,
+              "Expected: #{describe_char_match(min..max)} Actual: #{describe_char_match(c)}"
+            )
 
           %Context{status: {:error, _}} = new_ctx ->
             new_ctx
@@ -193,7 +205,12 @@ defmodule Ergo.Terminals do
       label,
       fn ctx ->
         with %Context{status: :ok} = peek_ctx <- Context.peek(ctx) do
-          err_ctx = Context.add_error(ctx, :unexpected_char, "Expected: #{describe_char_match(l)} Actual: #{describe_char_match(peek_ctx.ast)}")
+          err_ctx =
+            Context.add_error(
+              ctx,
+              :unexpected_char,
+              "Expected: #{describe_char_match(l)} Actual: #{describe_char_match(peek_ctx.ast)}"
+            )
 
           Enum.reduce_while(parsers, err_ctx, fn char_matcher, err_ctx ->
             case Parser.invoke(ctx, char_matcher) do
@@ -228,6 +245,7 @@ defmodule Ergo.Terminals do
 
   def not_char(l, opts) when is_list(l) do
     label = Keyword.get(opts, :label, "?-[#{inspect(l)}]")
+
     Parser.terminal(
       :not_char_list,
       label,
@@ -235,7 +253,12 @@ defmodule Ergo.Terminals do
         with %Context{status: :ok, ast: ast} <- Context.peek(ctx) do
           case Enum.member?(l, ast) do
             true ->
-              Context.add_error(ctx, :unexpected_char, "Should not have matched #{describe_char_match(ast)}")
+              Context.add_error(
+                ctx,
+                :unexpected_char,
+                "Should not have matched #{describe_char_match(ast)}"
+              )
+
             false ->
               Context.next_char(ctx)
           end
@@ -391,7 +414,7 @@ defmodule Ergo.Terminals do
     map_fn = Keyword.get(opts, :map, nil)
     label = Keyword.get(opts, :label, "literal<#{s}>")
 
-    char_parsers = Enum.map(String.to_charlist(s), &(char(&1)))
+    char_parsers = Enum.map(String.to_charlist(s), &char(&1))
 
     Parser.terminal(
       :literal,
@@ -423,6 +446,23 @@ defmodule Ergo.Terminals do
     end)
   end
 
+  def captured_literal(key) do
+    Parser.terminal(
+      :captured_literal,
+      "captured-literal-#{key}",
+      fn %Context{captures: captures} = ctx ->
+        case Map.get(captures, key) do
+          nil ->
+            ctx
+            |> Context.add_error(:capture_error, "No capture available under key '#{key}'")
+
+          s ->
+            Parser.invoke(ctx, literal(s))
+        end
+      end
+    )
+  end
+
   @doc """
   The delimited_text/2 parser matches a sequence of text delimited `open_char` and
   `close_char`. Because it is expected that `open_char` may appear multiple times
@@ -438,7 +478,9 @@ defmodule Ergo.Terminals do
         iex> assert %Context{status: :ok, ast: "{function b(y) {return x + y;}; return b;}", input: "foo"} = Ergo.parse(parser, "{function b(y) {return x + y;}; return b;}foo")
   """
   def delimited_text(open_char, close_char, opts \\ []) do
-    label = Keyword.get(opts, :label, "delimited_text<#{<<open_char::utf8>>}, #{<<close_char::utf8>>}>")
+    label =
+      Keyword.get(opts, :label, "delimited_text<#{<<open_char::utf8>>}, #{<<close_char::utf8>>}>")
+
     Parser.terminal(
       :delimited_text,
       label,
@@ -446,7 +488,8 @@ defmodule Ergo.Terminals do
     )
   end
 
-  defp nested_next_char(ctx, {count, chars}, open_char, close_char) when open_char != close_char do
+  defp nested_next_char(ctx, {count, chars}, open_char, close_char)
+       when open_char != close_char do
     with %{status: :ok, ast: ast} = new_ctx <- Context.next_char(ctx) do
       case ast do
         ^open_char ->
@@ -454,10 +497,16 @@ defmodule Ergo.Terminals do
 
         ^close_char ->
           case count do
-            0 -> Context.add_error(new_ctx, :unexpected_char, "Expected |#{describe_char_match(open_char)}| Actual: |#{describe_char_match(close_char)}|")
+            0 ->
+              Context.add_error(
+                new_ctx,
+                :unexpected_char,
+                "Expected |#{describe_char_match(open_char)}| Actual: |#{describe_char_match(close_char)}|"
+              )
 
             _ ->
               count = count - 1
+
               case count do
                 0 -> %{new_ctx | ast: [ast | chars] |> Enum.reverse() |> List.to_string()}
                 _ -> nested_next_char(new_ctx, {count, [ast | chars]}, open_char, close_char)
@@ -466,7 +515,12 @@ defmodule Ergo.Terminals do
 
         _char ->
           case count do
-            0 -> Context.add_error(new_ctx, :unexpected_char, "Expected |#{describe_char_match(open_char)}| Actual: |#{describe_char_match(ast)}|")
+            0 ->
+              Context.add_error(
+                new_ctx,
+                :unexpected_char,
+                "Expected |#{describe_char_match(open_char)}| Actual: |#{describe_char_match(ast)}|"
+              )
 
             _ ->
               nested_next_char(new_ctx, {count, [ast | chars]}, open_char, close_char)

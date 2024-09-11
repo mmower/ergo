@@ -31,9 +31,7 @@ defmodule Ergo.Combinators do
 
   # Gathers the labels from a list of Parsers and converts them into a string
   defp parser_labels(parsers) when is_list(parsers) do
-    parsers
-    |> Enum.map(fn %Parser{label: label} -> label end)
-    |> Enum.join(", ")
+    Enum.map_join(parsers, ", ", & &1.label)
   end
 
   # Given a keyword list representing options:
@@ -244,10 +242,16 @@ defmodule Ergo.Combinators do
           {%Context{status: {:fatal, _}} = fatal_ctx, _} ->
             {:halt, {committed, fatal_ctx}}
 
-          {%Context{status: {:error, _} = status, commit: commit_level} = fatal_ctx, true} when commit_level > 0 ->
+          {%Context{status: {:error, _} = status, commit: commit_level} = fatal_ctx, true}
+          when commit_level > 0 ->
             # Error when committed, convert to fatal error
             fatal_ctx = %{fatal_ctx | status: put_elem(status, 0, :fatal)}
-            Telemetry.event(fatal_ctx, :fatal, %{info: "Error while commit_level > 0", status: fatal_ctx.status})
+
+            Telemetry.event(fatal_ctx, :fatal, %{
+              info: "Error while commit_level > 0",
+              status: fatal_ctx.status
+            })
+
             {:halt, {true, fatal_ctx}}
 
           {%Context{status: {:error, _}} = err_ctx, false} ->
@@ -486,7 +490,7 @@ defmodule Ergo.Combinators do
   end
 
   @doc """
-  The string/1 parser takes a parser that returns an AST which is a string and
+  The atom/1 parser takes a parser that returns an AST which is a string and
   converts the AST into an atom.
 
   # Examples
@@ -638,13 +642,13 @@ defmodule Ergo.Combinators do
 
           %Context{status: {:error, _}} = err_ctx ->
             Telemetry.result(err_ctx)
+
             ctx
             |> Context.reset_status()
 
           %Context{status: :ok} = ok_ctx ->
             ok_ctx
             |> Context.add_error(:lookahead_fail, "Satisfied: #{parser.label}")
-
         end
       end,
       child_info: Parser.child_info_for_telemetry(parser)

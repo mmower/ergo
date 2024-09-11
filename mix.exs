@@ -1,7 +1,7 @@
 defmodule Ergo.MixProject do
   use Mix.Project
 
-  @version "0.9.9"
+  @version "1.0.0"
 
   def project do
     [
@@ -9,7 +9,7 @@ defmodule Ergo.MixProject do
       name: "Ergo",
       description: "A pragmatic parser combinator library",
       version: @version,
-      elixir: "~> 1.12",
+      elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       docs: docs(),
