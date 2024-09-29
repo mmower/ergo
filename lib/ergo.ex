@@ -4,17 +4,8 @@ defmodule Ergo do
              |> String.split("<!-- MDOC !-->")
              |> Enum.fetch!(1)
 
-  alias Ergo.{Context, Parser}
-
-  use Application
-
-  @doc ~S"""
-  `start/2` should be called before
-
-  """
-  def start(_type, _args) do
-    Supervisor.start_link([Ergo.ParserRefs], strategy: :one_for_one)
-  end
+  alias Ergo.Context
+  alias Ergo.Parser
 
   @doc ~S"""
   The `parser/2` function is a simple entry point to parsing inputs that constructs the Context record required.

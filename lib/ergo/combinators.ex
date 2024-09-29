@@ -242,10 +242,10 @@ defmodule Ergo.Combinators do
           {%Context{status: {:fatal, _}} = fatal_ctx, _} ->
             {:halt, {committed, fatal_ctx}}
 
-          {%Context{status: {:error, _} = status, commit: commit_level} = fatal_ctx, true}
+          {%Context{status: {:error, _}, commit: commit_level} = fatal_ctx, true}
           when commit_level > 0 ->
             # Error when committed, convert to fatal error
-            fatal_ctx = %{fatal_ctx | status: put_elem(status, 0, :fatal)}
+            fatal_ctx = Context.make_error_fatal(fatal_ctx)
 
             Telemetry.event(fatal_ctx, :fatal, %{
               info: "Error while commit_level > 0",

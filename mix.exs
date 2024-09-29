@@ -1,7 +1,7 @@
 defmodule Ergo.MixProject do
   use Mix.Project
 
-  @version "1.0.0"
+  @version "1.0.1"
 
   def project do
     [
@@ -20,8 +20,7 @@ defmodule Ergo.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger],
-      mod: {Ergo, []}
+      extra_applications: [:logger]
     ]
   end
 
@@ -31,7 +30,7 @@ defmodule Ergo.MixProject do
       {:mix_test_watch, "~> 1.0", only: :dev},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:ex_zipper, "~> 0.1.3"},
-      {:telemetry, "~> 0.4 or ~> 1.0"},
+      {:telemetry, "~> 0.4 or ~> 1.0"}
     ]
   end
 

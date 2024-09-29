@@ -168,6 +168,10 @@ defmodule Ergo.Context do
     %{ctx | ast: nil, status: {code, [{error_id, {line, col}, message} | errors]}}
   end
 
+  def make_error_fatal(%Context{status: status} = ctx) do
+    %{ctx | status: put_elem(status, 0, :fatal)}
+  end
+
   @doc ~S"""
   Returns truthy value if the parser referred to by `ref` has already been called for the index `index`.
 

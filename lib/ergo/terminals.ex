@@ -335,6 +335,14 @@ defmodule Ergo.Terminals do
     char([?a..?z, ?A..?Z], label: label)
   end
 
+  @doc ~s"""
+  The `non_ws/1` parser accepts any character that is not a white space.
+  """
+  def non_ws(options \\ []) do
+    label = Keyword.get(options, :label, "non_ws")
+    not_char([?\s, ?\t, ?\r, ?\n, ?\v], label: label)
+  end
+
   @doc ~S"""
   The `ws/0` parser accepts a white space character and is equivalent to the \s regular expression.
 

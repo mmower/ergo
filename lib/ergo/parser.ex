@@ -1,6 +1,7 @@
 defmodule Ergo.Parser do
   alias __MODULE__
-  alias Ergo.{Context, ParserRefs, Telemetry}
+  alias Ergo.Context
+  alias Ergo.Telemetry
   import Ergo.Utils, only: [printable_string: 1]
 
   require Logger
@@ -10,13 +11,17 @@ defmodule Ergo.Parser do
 
     defexception [:message]
 
-    def exception({%{index: curr_index, line: line, col: col, tracks: tracks} = _ctx, %{label: label, ref: cur_ref} = _parser}) do
+    def exception(
+          {%{index: curr_index, line: line, col: col, tracks: tracks} = _ctx,
+           %{label: label, ref: cur_ref} = _parser}
+        ) do
       message =
         Enum.reduce(
           tracks |> Enum.sort_by(fn {{index, _}, _} -> index end),
           "Ergo has detected a cycle! Aborting parsing of #{printable_string(label)}:(#{cur_ref}) at: L#{line}:#{col}",
           fn {{index, ref}, {line, col, {type, label}}}, msg ->
-            msg <> "\nL#{line}:#{col} #{type}/#{printable_string(label)}(#{ref}) #{if ref == cur_ref && index == curr_index, do: "<-- HERE"}"
+            msg <>
+              "\nL#{line}:#{col} #{type}/#{printable_string(label)}(#{ref}) #{if ref == cur_ref && index == curr_index, do: "<-- HERE"}"
           end
         )
 
@@ -37,6 +42,10 @@ defmodule Ergo.Parser do
             err: nil,
             child_info: []
 
+  def next_ref() do
+    :erlang.unique_integer([:positive, :monotonic])
+  end
+
   @doc ~S"""
   Create a new combinator parser with the given label, parsing function, and
   optional metadata.
@@ -48,7 +57,7 @@ defmodule Ergo.Parser do
       combinator: true,
       label: label,
       parser_fn: parser_fn,
-      ref: ParserRefs.next_ref()
+      ref: next_ref()
     }
     |> Map.merge(Enum.into(meta, %{}))
   end
@@ -64,7 +73,7 @@ defmodule Ergo.Parser do
       combinator: false,
       label: label,
       parser_fn: parser_fn,
-      ref: ParserRefs.next_ref()
+      ref: next_ref()
     }
     |> Map.merge(Enum.into(meta, %{}))
   end
