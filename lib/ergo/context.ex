@@ -75,7 +75,7 @@ defmodule Ergo.Context do
             status: :ok,
             serial: 0,
             input: "",
-            consumed: "",
+            consumed: [],
             index: 0,
             line: 1,
             col: 1,
@@ -225,11 +225,6 @@ defmodule Ergo.Context do
 
   def next_char(%Context{input: ""} = ctx) do
     Context.add_error(ctx, :unexpected_eoi, "Unexpected end of input")
-    # %{
-    #   ctx
-    #   | status: {:error, },
-    #     message:
-    # }
   end
 
   def next_char(
@@ -242,7 +237,7 @@ defmodule Ergo.Context do
       ctx
       | status: :ok,
         input: rest,
-        consumed: consumed <> List.to_string([char]),
+        consumed: [char | consumed],
         ast: char,
         index: new_index,
         line: new_line,
