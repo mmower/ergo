@@ -68,6 +68,11 @@ defmodule Ergo.Context do
 
   A map of data that can be captured from ASTs using the capture parser.
 
+  * `partial_ast`
+
+  A list containing AST elements that were successfully parsed before a sequence parser failed.
+  This allows error functions to access partially parsed data to provide better error messages.
+
   """
 
   defstruct id: nil,
@@ -87,7 +92,8 @@ defmodule Ergo.Context do
             depth: 0,
             parsers: [],
             commit: 0,
-            captures: %{}
+            captures: %{},
+            partial_ast: []
 
   @doc """
   `new` returns a newly initialised `Context` with `input` set to the string passed in.
@@ -351,5 +357,50 @@ defmodule Ergo.Context do
 
   def dec_depth(%Context{depth: depth} = ctx) do
     %{ctx | depth: depth - 1}
+  end
+
+  @doc ~S"""
+  Sets the partial AST for the context. This is used to track successfully parsed
+  elements during sequence parsing failures.
+
+  ## Examples
+
+      iex> alias Ergo.Context
+      iex> ctx = Context.new("test")
+      iex> ctx = Context.set_partial_ast(ctx, ["attr_name", ":"])
+      iex> assert %Context{partial_ast: ["attr_name", ":"]} = ctx
+  """
+  def set_partial_ast(%Context{} = ctx, partial_ast) when is_list(partial_ast) do
+    %{ctx | partial_ast: partial_ast}
+  end
+
+  @doc ~S"""
+  Pushes an AST element to the front of the partial AST list.
+
+  ## Examples
+
+      iex> alias Ergo.Context
+      iex> ctx = Context.new("test")
+      iex> ctx = Context.push_partial_ast(ctx, "attr_name")
+      iex> ctx = Context.push_partial_ast(ctx, ":")
+      iex> assert %Context{partial_ast: [":", "attr_name"]} = ctx
+  """
+  def push_partial_ast(%Context{partial_ast: partial} = ctx, ast_element) do
+    %{ctx | partial_ast: [ast_element | partial]}
+  end
+
+  @doc ~S"""
+  Clears the partial AST by setting it to an empty list.
+
+  ## Examples
+
+      iex> alias Ergo.Context
+      iex> ctx = Context.new("test")
+      iex> ctx = Context.set_partial_ast(ctx, ["attr_name", ":"])
+      iex> ctx = Context.clear_partial_ast(ctx)
+      iex> assert %Context{partial_ast: []} = ctx
+  """
+  def clear_partial_ast(%Context{} = ctx) do
+    %{ctx | partial_ast: []}
   end
 end

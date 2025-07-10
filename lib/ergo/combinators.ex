@@ -147,6 +147,12 @@ defmodule Ergo.Combinators do
   is complete, if it has increased the commit count it decrements it before
   returning it. See also `many`
 
+  ## Partial AST Support
+
+  When a sequence parser fails, the error function receives a context with the
+  `partial_ast` field populated with the successfully parsed elements. This allows
+  for more informative error messages.
+
   ## Examples
 
       iex> alias Ergo.Context
@@ -181,6 +187,32 @@ defmodule Ergo.Combinators do
       iex> import Ergo.{Combinators, Terminals}
       iex> parser = sequence([literal("foo"), ws(), literal("bar")])
       iex> assert %Context{status: {:error, [{:bad_literal, _, _}, {:unexpected_char, _, _}]}} = Ergo.parse(parser, "Hello World")
+
+  ## Partial AST Error Handling Example
+
+      # Parse attribute declarations like "attr_name: value"
+      attr_name_parser = many(alpha(), min: 1) |> string()
+      value_parser = many(alpha(), min: 1) |> string()
+      
+      parser = sequence([
+        attr_name_parser,
+        literal(":"),
+        value_parser
+      ], err: fn %{partial_ast: partial} = ctx ->
+        case partial do
+          [attr_name, ":"] ->
+            Context.add_error(ctx, :value_parse_failed, 
+              "Failed to parse value for attribute '#{attr_name}'")
+          [attr_name] ->
+            Context.add_error(ctx, :colon_missing, 
+              "Expected ':' after attribute name '#{attr_name}'")
+          _ ->
+            ctx
+        end
+      end)
+      
+      # On "myattr:123", gets error: "Failed to parse value for attribute 'myattr'"
+      # On "myattr fail", gets error: "Expected ':' after attribute name 'myattr'"
   """
   def sequence(parsers, opts \\ [])
 
@@ -201,6 +233,7 @@ defmodule Ergo.Combinators do
             # We remove nils from the AST since they represent ignored values
             |> Context.ast_without_ignored()
             |> Context.ast_in_parsed_order()
+            |> Context.clear_partial_ast()  # Clear partial_ast on success
             |> map_fn.()
 
           %Context{} = err_ctx ->
@@ -237,7 +270,10 @@ defmodule Ergo.Combinators do
         case {Parser.invoke(ctx, parser), committed} do
           {%Context{status: :ok, ast: child_ast} = ok_ctx, _} ->
             # Return the new CTX but prepend the child AST to the old AST
-            {:cont, {committed, %{ok_ctx | ast: [child_ast | ctx.ast]}}}
+            # Also track this success in partial_ast
+            new_ctx = %{ok_ctx | ast: [child_ast | ctx.ast]}
+            new_ctx = Context.push_partial_ast(new_ctx, child_ast)
+            {:cont, {committed, new_ctx}}
 
           {%Context{status: {:fatal, _}} = fatal_ctx, _} ->
             {:halt, {committed, fatal_ctx}}
@@ -246,6 +282,8 @@ defmodule Ergo.Combinators do
           when commit_level > 0 ->
             # Error when committed, convert to fatal error
             fatal_ctx = Context.make_error_fatal(fatal_ctx)
+            # Set partial_ast to the accumulated parsed elements (in parsed order)
+            fatal_ctx = Context.set_partial_ast(fatal_ctx, Enum.reverse(ctx.partial_ast))
 
             Telemetry.event(fatal_ctx, :fatal, %{
               info: "Error while commit_level > 0",
@@ -256,6 +294,8 @@ defmodule Ergo.Combinators do
 
           {%Context{status: {:error, _}} = err_ctx, false} ->
             # Regular error, halt and report back
+            # Set partial_ast to the accumulated parsed elements (in parsed order)
+            err_ctx = Context.set_partial_ast(err_ctx, Enum.reverse(ctx.partial_ast))
             {:halt, {false, err_ctx}}
         end
     end)
