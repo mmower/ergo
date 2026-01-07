@@ -403,4 +403,5 @@ defmodule Ergo.Context do
   def clear_partial_ast(%Context{} = ctx) do
     %{ctx | partial_ast: []}
   end
+
 end

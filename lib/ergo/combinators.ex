@@ -193,7 +193,7 @@ defmodule Ergo.Combinators do
       # Parse attribute declarations like "attr_name: value"
       attr_name_parser = many(alpha(), min: 1) |> string()
       value_parser = many(alpha(), min: 1) |> string()
-      
+
       parser = sequence([
         attr_name_parser,
         literal(":"),
@@ -201,16 +201,16 @@ defmodule Ergo.Combinators do
       ], err: fn %{partial_ast: partial} = ctx ->
         case partial do
           [attr_name, ":"] ->
-            Context.add_error(ctx, :value_parse_failed, 
+            Context.add_error(ctx, :value_parse_failed,
               "Failed to parse value for attribute '#{attr_name}'")
           [attr_name] ->
-            Context.add_error(ctx, :colon_missing, 
+            Context.add_error(ctx, :colon_missing,
               "Expected ':' after attribute name '#{attr_name}'")
           _ ->
             ctx
         end
       end)
-      
+
       # On "myattr:123", gets error: "Failed to parse value for attribute 'myattr'"
       # On "myattr fail", gets error: "Expected ':' after attribute name 'myattr'"
   """
@@ -222,6 +222,7 @@ defmodule Ergo.Combinators do
     label = Keyword.get(opts, :label, "sequence<#{parser_labels(parsers)}>")
     map_fn = mapping_fn(opts)
     err_fn = Keyword.get(opts, :err, &Function.identity/1)
+    should_flatten = Keyword.get(opts, :flatten, false)
 
     Parser.combinator(
       :sequence,
@@ -234,6 +235,7 @@ defmodule Ergo.Combinators do
             |> Context.ast_without_ignored()
             |> Context.ast_in_parsed_order()
             |> Context.clear_partial_ast()  # Clear partial_ast on success
+            |> sequence_flatten_ast(should_flatten)
             |> map_fn.()
 
           %Context{} = err_ctx ->
@@ -242,6 +244,14 @@ defmodule Ergo.Combinators do
       end,
       child_info: Parser.child_info_for_telemetry(parsers)
     )
+  end
+
+  defp sequence_flatten_ast(%Context{} = ctx, false) do
+    ctx
+  end
+
+  defp sequence_flatten_ast(%Context{ast: ast} = ctx, true) do
+    %{ctx | ast: List.flatten(ast)}
   end
 
   defp sequence_reduce(parsers, %Context{} = ctx) when is_list(parsers) do
@@ -400,7 +410,7 @@ defmodule Ergo.Combinators do
   end
 
   def parse_many(%Parser{} = parser, %Context{} = ctx, min, max, count)
-      when is_integer(min) and min >= 0 and ((is_integer(max) and max > min) or max == :infinity) and
+      when is_integer(min) and min >= 0 and ((is_integer(max) and max >= min) or max == :infinity) and
              is_integer(count) do
     case Parser.invoke(ctx, parser) do
       %Context{status: {:fatal, _}} = fatal_ctx ->

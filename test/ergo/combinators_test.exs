@@ -246,10 +246,116 @@ defmodule Ergo.CombinatorsTest do
       end)
 
       result = Ergo.parse(parser, "hello fail")
-      assert [{:old_style_error, {1, 7}, "Old style error handling"} | _] = 
+      assert [{:old_style_error, {1, 7}, "Old style error handling"} | _] =
         elem(result.status, 1)
       # partial_ast should still be set even if error function doesn't use it
       assert result.partial_ast == ["hello", " "]
+    end
+  end
+
+  describe "sequence flatten option" do
+    test "flatten: true flattens nested lists in AST" do
+      # Create a parser that produces nested lists
+      inner_seq = sequence([literal("a"), literal("b")])
+      outer_seq = sequence([literal("1"), inner_seq, literal("2")], flatten: true)
+
+      result = Ergo.parse(outer_seq, "1ab2")
+      assert %{status: :ok, ast: ["1", "a", "b", "2"]} = result
+    end
+
+    test "flatten: false (default) preserves nested lists" do
+      inner_seq = sequence([literal("a"), literal("b")])
+      outer_seq = sequence([literal("1"), inner_seq, literal("2")])
+
+      result = Ergo.parse(outer_seq, "1ab2")
+      assert %{status: :ok, ast: ["1", ["a", "b"], "2"]} = result
+    end
+
+    test "flatten: true with ast: function receives flattened AST" do
+      inner_seq = sequence([literal("a"), literal("b")])
+      outer_seq = sequence(
+        [literal("1"), inner_seq, literal("2")],
+        flatten: true,
+        ast: fn ast -> Enum.join(ast, "-") end
+      )
+
+      result = Ergo.parse(outer_seq, "1ab2")
+      assert %{status: :ok, ast: "1-a-b-2"} = result
+    end
+
+    test "flatten: true with ctx: function receives flattened AST" do
+      inner_seq = sequence([literal("a"), literal("b")])
+      outer_seq = sequence(
+        [literal("1"), inner_seq, literal("2")],
+        flatten: true,
+        ctx: fn %{ast: ast} = ctx -> %{ctx | ast: length(ast)} end
+      )
+
+      result = Ergo.parse(outer_seq, "1ab2")
+      # Flattened list has 4 elements: ["1", "a", "b", "2"]
+      assert %{status: :ok, ast: 4} = result
+    end
+
+    test "flatten: false with ast: function receives nested AST" do
+      inner_seq = sequence([literal("a"), literal("b")])
+      outer_seq = sequence(
+        [literal("1"), inner_seq, literal("2")],
+        flatten: false,
+        ast: fn ast -> length(ast) end
+      )
+
+      result = Ergo.parse(outer_seq, "1ab2")
+      # Non-flattened list has 3 elements: ["1", ["a", "b"], "2"]
+      assert %{status: :ok, ast: 3} = result
+    end
+
+    test "flatten: true handles deeply nested lists" do
+      level3 = sequence([literal("x"), literal("y")])
+      level2 = sequence([literal("c"), level3, literal("d")])
+      level1 = sequence([literal("a"), level2, literal("b")], flatten: true)
+
+      result = Ergo.parse(level1, "acxydb")
+      assert %{status: :ok, ast: ["a", "c", "x", "y", "d", "b"]} = result
+    end
+
+    test "flatten: true with already flat list is idempotent" do
+      parser = sequence([literal("a"), literal("b"), literal("c")], flatten: true)
+
+      result = Ergo.parse(parser, "abc")
+      assert %{status: :ok, ast: ["a", "b", "c"]} = result
+    end
+
+    test "flatten: true works with many producing nested results" do
+      # many produces a list, so sequence of many results in nested lists
+      many_parser = many(alpha(), min: 2, max: 2)
+      seq_parser = sequence([many_parser, literal("-"), many_parser], flatten: true)
+
+      result = Ergo.parse(seq_parser, "ab-cd")
+      assert %{status: :ok, ast: [?a, ?b, "-", ?c, ?d]} = result
+    end
+
+    test "flatten: true works with ignored elements" do
+      inner_seq = sequence([literal("a"), literal("b")])
+      outer_seq = sequence(
+        [literal("1"), ignore(literal("-")), inner_seq, literal("2")],
+        flatten: true
+      )
+
+      result = Ergo.parse(outer_seq, "1-ab2")
+      # Ignored elements are removed, then flattening happens
+      assert %{status: :ok, ast: ["1", "a", "b", "2"]} = result
+    end
+
+    test "flatten does not affect error cases" do
+      inner_seq = sequence([literal("a"), literal("b")])
+      outer_seq = sequence(
+        [literal("1"), inner_seq, literal("2")],
+        flatten: true,
+        err: fn ctx -> Ergo.Context.add_error(ctx, :test_error, "test") end
+      )
+
+      result = Ergo.parse(outer_seq, "1abX")
+      assert {:error, _} = result.status
     end
   end
 end
