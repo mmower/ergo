@@ -292,6 +292,67 @@ p = not_lookhead(literal("Hello"))
 p.(Context.new("Hello World")) -> %{status: {:error, :lookahead_fail}}
 ```
 
+## Telemetry
+
+Ergo includes built-in telemetry that emits events for every parser invocation via the Erlang `:telemetry` library. This is useful for debugging and for generating OPML outlines of parser execution, but adds overhead during parsing.
+
+Telemetry is **disabled by default**. All telemetry functions compile to no-ops that pass the context through unchanged, so there is zero runtime cost when telemetry is off.
+
+### Enabling Telemetry
+
+Set the `ERGO_TELEMETRY` environment variable to `"true"` before compiling:
+
+```bash
+ERGO_TELEMETRY=true mix compile --force
+```
+
+Since this is a compile-time setting, you must force a recompile of the `:ergo` dependency when changing it:
+
+```bash
+ERGO_TELEMETRY=true mix deps.compile ergo --force
+```
+
+### Using Telemetry
+
+With telemetry enabled, start the telemetry server and retrieve events by parse ID:
+
+```elixir
+Ergo.Telemetry.start()
+
+parser = Ergo.Combinators.sequence([Ergo.Terminals.digit(), Ergo.Terminals.digit()])
+%{status: :ok, id: id} = Ergo.parse(parser, "42")
+
+events = Ergo.Telemetry.get_events(id)
+```
+
+Each event is a map containing `:event` (`:enter`, `:leave`, `:match`, or `:error`), `:type`, `:label`, position information, and other parser metadata.
+
+### Telemetry Events
+
+Ergo emits the following `:telemetry` events:
+
+- `[:ergo, :enter]` — a parser is about to be invoked
+- `[:ergo, :leave]` — a parser has finished
+- `[:ergo, :match]` — a parser matched successfully
+- `[:ergo, :error]` — a parser failed to match
+- `[:ergo, :event]` — a custom event emitted by a combinator
+
+### OPML Outline Generation
+
+With telemetry enabled, you can generate OPML outlines for visual debugging of parser execution using `Ergo.Outline.Builder` and `Ergo.Outline.OPML`.
+
+### Running Tests with Telemetry
+
+Ergo's telemetry and outline tests are only compiled when telemetry is enabled:
+
+```bash
+# Default: runs all tests except telemetry/outline tests
+mix test
+
+# With telemetry: runs the full test suite
+ERGO_TELEMETRY=true mix test
+```
+
 <!-- MDOC !-->
 
 ## Documentation
