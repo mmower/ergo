@@ -171,7 +171,7 @@ defmodule Ergo.Terminals do
     )
   end
 
-  def char(min..max, opts) when is_integer(min) and is_integer(max) do
+  def char(min..max//1, opts) when is_integer(min) and is_integer(max) do
     label = Keyword.get(opts, :label, describe_char_match(min..max))
 
     Parser.terminal(
@@ -179,7 +179,7 @@ defmodule Ergo.Terminals do
       label,
       fn ctx ->
         case Context.next_char(ctx) do
-          %Context{status: :ok, ast: c} = new_ctx when c in min..max ->
+          %Context{status: :ok, ast: c} = new_ctx when c in min..max//1 ->
             new_ctx
 
           %Context{status: :ok, ast: c} ->
@@ -205,22 +205,29 @@ defmodule Ergo.Terminals do
       label,
       fn ctx ->
         with %Context{status: :ok} = peek_ctx <- Context.peek(ctx) do
-          err_ctx =
-            Context.add_error(
-              ctx,
-              :unexpected_char,
-              "Expected: #{describe_char_match(l)} Actual: #{describe_char_match(peek_ctx.ast)}"
-            )
+          case first_match(ctx, parsers) do
+            %Context{status: :ok} = new_ctx ->
+              new_ctx
 
-          Enum.reduce_while(parsers, err_ctx, fn char_matcher, err_ctx ->
-            case Parser.invoke(ctx, char_matcher) do
-              %Context{status: :ok} = new_ctx -> {:halt, new_ctx}
-              _no_match -> {:cont, err_ctx}
-            end
-          end)
+            nil ->
+              Context.add_error(
+                ctx,
+                :unexpected_char,
+                "Expected: #{describe_char_match(l)} Actual: #{describe_char_match(peek_ctx.ast)}"
+              )
+          end
         end
       end
     )
+  end
+
+  defp first_match(_ctx, []), do: nil
+
+  defp first_match(ctx, [char_matcher | rest]) do
+    case Parser.invoke(ctx, char_matcher) do
+      %Context{status: :ok} = new_ctx -> new_ctx
+      _no_match -> first_match(ctx, rest)
+    end
   end
 
   @doc """
