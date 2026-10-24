@@ -250,18 +250,20 @@ defmodule Ergo.Terminals do
       :not_char_list,
       label,
       fn ctx ->
-        with %Context{status: :ok, ast: ast} <- Context.peek(ctx) do
-          case Enum.member?(l, ast) do
-            true ->
+        case Context.next_char(ctx) do
+          %Context{status: :ok, ast: c} = new_ctx ->
+            if c in l do
               Context.add_error(
                 ctx,
                 :unexpected_char,
-                "Should not have matched #{describe_char_match(ast)}"
+                "Should not have matched #{describe_char_match(c)}"
               )
+            else
+              new_ctx
+            end
 
-            false ->
-              Context.next_char(ctx)
-          end
+          %Context{status: {:error, _}} = err_ctx ->
+            err_ctx
         end
       end
     )
