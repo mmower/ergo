@@ -119,23 +119,20 @@ defmodule Ergo.Combinators do
     )
   end
 
-  defp apply_parsers_in_turn(parsers, %Context{} = ctx, label) do
-    Enum.reduce_while(
-      parsers,
-      Context.add_error(ctx, :no_valid_choice, "#{label} did not find a valid choice"),
-      fn %Parser{} = parser, %Context{} = ctx ->
-        case Parser.invoke(ctx, parser) do
-          %Context{status: :ok} = new_ctx ->
-            {:halt, new_ctx}
+  defp apply_parsers_in_turn(parsers, ctx, label) do
+    case first_matching_parser(parsers, ctx) do
+      nil -> Context.add_error(ctx, :no_valid_choice, "#{label} did not find a valid choice")
+      result -> result
+    end
+  end
 
-          %Context{status: {:error, _}} ->
-            {:cont, ctx}
+  defp first_matching_parser([], _ctx), do: nil
 
-          %Context{status: {:fatal, _}} = fatal_ctx ->
-            {:halt, fatal_ctx}
-        end
-      end
-    )
+  defp first_matching_parser([parser | rest], ctx) do
+    case Parser.invoke(ctx, parser) do
+      %Context{status: {:error, _}} -> first_matching_parser(rest, ctx)
+      %Context{} = result -> result
+    end
   end
 
   @doc ~S"""
@@ -234,7 +231,8 @@ defmodule Ergo.Combinators do
             # We remove nils from the AST since they represent ignored values
             |> Context.ast_without_ignored()
             |> Context.ast_in_parsed_order()
-            |> Context.clear_partial_ast()  # Clear partial_ast on success
+            # Clear partial_ast on success
+            |> Context.clear_partial_ast()
             |> sequence_flatten_ast(should_flatten)
             |> map_fn.()
 
