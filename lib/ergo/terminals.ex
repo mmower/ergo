@@ -220,6 +220,7 @@ defmodule Ergo.Terminals do
 
   defp char_matches?(c, c) when is_integer(c), do: true
   defp char_matches?(range, c) when is_struct(range, Range), do: c in range
+  defp char_matches?(l, c) when is_list(l), do: Enum.any?(l, &char_matches?(&1, c))
   defp char_matches?(neg, c) when is_integer(neg) and neg < 0, do: c != -neg
   defp char_matches?(_, _), do: false
 
@@ -424,35 +425,8 @@ defmodule Ergo.Terminals do
     map_fn = Keyword.get(opts, :map, nil)
     label = Keyword.get(opts, :label, "literal<#{s}>")
 
-    char_parsers = Enum.map(String.to_charlist(s), &char(&1))
-
-    Parser.terminal(
-      :literal,
-      label,
-      fn %Context{} = ctx ->
-        case reduce_chars(char_parsers, ctx) do
-          %{status: :ok} = ok_ctx ->
-            ok_ctx
-            |> Context.ast_in_parsed_order()
-            |> Context.ast_to_string()
-            |> Context.ast_transform(map_fn)
-
-          %{status: {:error, _}} = err_ctx ->
-            Context.add_error(err_ctx, :bad_literal, label)
-        end
-      end
-    )
-  end
-
-  defp reduce_chars(char_parsers, ctx) do
-    Enum.reduce_while(char_parsers, %{ctx | ast: []}, fn char_parser, ctx ->
-      case Parser.invoke(ctx, char_parser) do
-        %Context{status: :ok} = ok_ctx ->
-          {:cont, %{ok_ctx | ast: [ok_ctx.ast | ctx.ast]}}
-
-        %Context{status: {:error, [{error_id, {_line, _col}, message}]}} ->
-          {:halt, Context.add_error(ctx, error_id, message)}
-      end
+    Parser.terminal(:literal, label, fn %Context{} = ctx ->
+      match_literal(ctx, s, label, map_fn)
     end)
   end
 
@@ -462,15 +436,82 @@ defmodule Ergo.Terminals do
       "captured-literal-#{key}",
       fn %Context{captures: captures} = ctx ->
         case Map.get(captures, key) do
-          nil ->
-            ctx
-            |> Context.add_error(:capture_error, "No capture available under key '#{key}'")
-
-          s ->
-            Parser.invoke(ctx, literal(s))
+          nil -> Context.add_error(ctx, :capture_error, "No capture available under key '#{key}'")
+          s -> match_literal(ctx, s, nil, nil)
         end
       end
     )
+  end
+
+  defp match_literal(%Context{input: input} = ctx, s, label, map_fn) do
+    size = byte_size(s)
+
+    case :binary.longest_common_prefix([s, input]) do
+      ^size ->
+        ctx |> advance(s) |> Context.ast_transform(map_fn)
+
+      n ->
+        n = codepoint_boundary(s, n)
+        <<expected::utf8, _::binary>> = binary_part(s, n, size - n)
+
+        ctx
+        |> advance(binary_part(s, 0, n))
+        |> literal_mismatch(expected)
+        |> Context.add_error(:bad_literal, label || "literal<#{s}>")
+    end
+  end
+
+  # `n` counts bytes. If the divergence is inside a multibyte character
+  # that whole character did not match, so back up to its first byte
+  # 0xC0 = 11000000 This is used to mask the top two bits and zero the rest
+  # 0x80 = 10000000 This is used to test if the top bit is 1
+  defp codepoint_boundary(_s, 0), do: 0
+
+  defp codepoint_boundary(s, n) do
+    if Bitwise.band(:binary.at(s, n), 0xC0) == 0x80,
+      do: codepoint_boundary(s, n - 1),
+      else: n
+  end
+
+  defp literal_mismatch(%Context{input: ""} = ctx, _expected) do
+    Context.add_error(ctx, :unexpected_eoi, "Unexpected end of input")
+  end
+
+  defp literal_mismatch(%Context{input: <<actual::utf8, _::binary>>} = ctx, expected) do
+    Context.add_error(
+      ctx,
+      :unexpected_char,
+      "Expected: #{describe_char_match(expected)} Actual: #{describe_char_match(actual)}"
+    )
+  end
+
+  defp advance(
+         %Context{input: input, consumed: consumed, index: i, line: l, col: c} = ctx,
+         matched
+       ) do
+    {i, l, c, consumed} = advance_chars(matched, i, l, c, consumed)
+    size = byte_size(matched)
+
+    %{
+      ctx
+      | status: :ok,
+        ast: matched,
+        input: binary_part(input, size, byte_size(input) - size),
+        consumed: consumed,
+        index: i,
+        line: l,
+        col: c
+    }
+  end
+
+  defp advance_chars(<<>>, i, l, c, consumed), do: {i, l, c, consumed}
+
+  defp advance_chars(<<?\n::utf8, rest::binary>>, i, l, _c, consumed) do
+    advance_chars(rest, i + 1, l + 1, 1, [?\n | consumed])
+  end
+
+  defp advance_chars(<<ch::utf8, rest::binary>>, i, l, c, consumed) do
+    advance_chars(rest, i + 1, l, c + 1, [ch | consumed])
   end
 
   @doc """

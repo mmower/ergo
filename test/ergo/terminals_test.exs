@@ -86,5 +86,13 @@ defmodule Ergo.TerminalsTest do
     test "fails when nothing matches" do
       assert %Context{status: {:error, _}} = Ergo.parse(char([?a, ?b..?c]), "z")
     end
+
+    test "char list accepts nested lists" do
+      parser = char([?_, [?a..?z], [?A..?Z]])
+      assert %Context{status: :ok} = Ergo.parse(parser, "p")
+      assert %Context{status: :ok} = Ergo.parse(parser, "Q")
+      assert %Context{status: :ok} = Ergo.parse(parser, "_")
+      assert %Context{status: {:error, _}} = Ergo.parse(parser, "1")
+    end
   end
 end
