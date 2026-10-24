@@ -78,22 +78,47 @@ defmodule Ergo.Parser do
     |> Map.merge(Enum.into(meta, %{}))
   end
 
-  @doc ~S"""
-  `invoke/2` invokes the parsing function of the given parser on the specified
-  `%Context{}` structure. It maintains housekeeping for the parser generally.
-  """
-  def invoke(%Context{} = ctx, %Parser{parser_fn: parser_fn} = parser) do
-    ctx
-    |> Context.push_parser(parser)
-    |> Telemetry.enter()
-    |> Context.reset_status()
-    # |> track_parser()
-    |> push_entry_point()
-    |> parser_fn.()
-    |> pop_entry_point()
-    |> Telemetry.result()
-    |> Telemetry.leave()
-    |> Context.pop_parser()
+  @telemetry_enabled Ergo.Telemetry.enabled?()
+  if @telemetry_enabled do
+    @doc ~S"""
+    `invoke/2` invokes the parsing function of the given parser on the specified
+    `%Context{}` structure. It maintains housekeeping for the parser generally.
+    """
+    def invoke(%Context{} = ctx, %Parser{parser_fn: parser_fn} = parser) do
+      ctx
+      |> Context.push_parser(parser)
+      |> Telemetry.enter()
+      |> Context.reset_status()
+      # |> track_parser()
+      |> push_entry_point()
+      |> parser_fn.()
+      |> pop_entry_point()
+      |> Telemetry.result()
+      |> Telemetry.leave()
+      |> Context.pop_parser()
+    end
+  else
+    @doc ~S"""
+    `invoke/2` invokes the parsing function of the given parser on the specified
+    `%Context{}` structure. It maintains housekeeping for the parser generally.
+    """
+    def invoke(
+          %Context{parser: prev, parsers: stack, entry_points: eps, line: line, col: col} = ctx,
+          %Parser{parser_fn: parser_fn} = parser
+        ) do
+      # Non-telemetry path we do this the fast way
+      out =
+        parser_fn.(%{
+          ctx
+          | parser: parser,
+            parsers: [prev | stack],
+            status: :ok,
+            ast: nil,
+            entry_points: [{line, col} | eps]
+        })
+
+      %{out | parser: prev, parsers: stack, entry_points: eps}
+    end
   end
 
   def push_entry_point(%Context{entry_points: entry_points, line: line, col: col} = ctx) do
