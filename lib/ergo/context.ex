@@ -95,28 +95,54 @@ defmodule Ergo.Context do
             captures: %{},
             partial_ast: []
 
-  @doc """
-  `new` returns a newly initialised `Context` with `input` set to the string passed in.
+  @telemetry_enabled Ergo.Telemetry.enabled?()
 
-  ## Examples:
-    iex> alias Ergo.Context
-    iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %{}} = Context.new("Hello World")
-  """
-  def new(input \\ "", options \\ []) when is_binary(input) do
-    created_at = Calendar.strftime(DateTime.utc_now(), "%y-%m-%d-%H-%M-%S")
+  if @telemetry_enabled do
+    @doc """
+    `new` returns a newly initialised `Context` with `input` set to the string passed in.
 
-    id = Keyword.get(options, :id, created_at)
-    ast = Keyword.get(options, :ast, nil)
-    data = Keyword.get(options, :data, %{})
+    ## Examples:
+      iex> alias Ergo.Context
+      iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %{}} = Context.new("Hello World")
+    """
+    def new(input \\ "", options \\ []) when is_binary(input) do
+      created_at = Calendar.strftime(DateTime.utc_now(), "%y-%m-%d-%H-%M-%S")
+      id = Keyword.get(options, :id, created_at)
+      ast = Keyword.get(options, :ast, nil)
+      data = Keyword.get(options, :data, %{})
 
-    %Context{
-      id: id,
-      created_at: created_at,
-      input: input,
-      ast: ast,
-      data: data
-    }
+      %Context{
+        id: id,
+        created_at: created_at,
+        input: input,
+        ast: ast,
+        data: data
+      }
+    end
+  else
+    @doc """
+    `new` returns a newly initialised `Context` with `input` set to the string passed in.
+
+    ## Examples:
+      iex> alias Ergo.Context
+      iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %{}} = Context.new("Hello World")
+    """
+    def new(input \\ "", options \\ []) when is_binary(input) do
+      id = Keyword.get(options, :id, timestamp())
+      ast = Keyword.get(options, :ast, nil)
+      data = Keyword.get(options, :data, %{})
+
+      %Context{
+        id: id,
+        created_at: nil,
+        input: input,
+        ast: ast,
+        data: data
+      }
+    end
   end
+
+  defp timestamp, do: Calendar.strftime(DateTime.utc_now(), "%y-%m-%d-%H-%M-%S")
 
   @doc ~S"""
   Clears the value of the status and ast fields to ensure that the wrong status information cannot be returned from a child parser.
@@ -403,5 +429,4 @@ defmodule Ergo.Context do
   def clear_partial_ast(%Context{} = ctx) do
     %{ctx | partial_ast: []}
   end
-
 end

@@ -1,7 +1,7 @@
 defmodule Ergo.Parser do
   alias __MODULE__
   alias Ergo.Context
-  alias Ergo.Telemetry
+
   import Ergo.Utils, only: [printable_string: 1]
 
   require Logger
@@ -80,6 +80,8 @@ defmodule Ergo.Parser do
 
   @telemetry_enabled Ergo.Telemetry.enabled?()
   if @telemetry_enabled do
+    alias Ergo.Telemetry
+
     @doc ~S"""
     `invoke/2` invokes the parsing function of the given parser on the specified
     `%Context{}` structure. It maintains housekeeping for the parser generally.
