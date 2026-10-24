@@ -198,37 +198,30 @@ defmodule Ergo.Terminals do
 
   def char(l, opts) when is_list(l) do
     label = Keyword.get(opts, :label, "[#{inspect(l)}]")
-    parsers = Enum.map(l, fn c -> char(c) end)
 
-    Parser.terminal(
-      :char_list,
-      label,
-      fn ctx ->
-        with %Context{status: :ok} = peek_ctx <- Context.peek(ctx) do
-          case first_match(ctx, parsers) do
-            %Context{status: :ok} = new_ctx ->
-              new_ctx
-
-            nil ->
-              Context.add_error(
-                ctx,
-                :unexpected_char,
-                "Expected: #{describe_char_match(l)} Actual: #{describe_char_match(peek_ctx.ast)}"
-              )
+    Parser.terminal(:char_list, label, fn ctx ->
+      case Context.next_char(ctx) do
+        %Context{status: :ok, ast: c} = new_ctx ->
+          if Enum.any?(l, &char_matches?(&1, c)) do
+            new_ctx
+          else
+            Context.add_error(
+              ctx,
+              :unexpected_char,
+              "Expected: #{describe_char_match(l)} Actual: #{describe_char_match(c)}"
+            )
           end
-        end
+
+        %Context{status: {:error, _}} = err_ctx ->
+          err_ctx
       end
-    )
+    end)
   end
 
-  defp first_match(_ctx, []), do: nil
-
-  defp first_match(ctx, [char_matcher | rest]) do
-    case Parser.invoke(ctx, char_matcher) do
-      %Context{status: :ok} = new_ctx -> new_ctx
-      _no_match -> first_match(ctx, rest)
-    end
-  end
+  defp char_matches?(c, c) when is_integer(c), do: true
+  defp char_matches?(range, c) when is_struct(range, Range), do: c in range
+  defp char_matches?(neg, c) when is_integer(neg) and neg < 0, do: c != -neg
+  defp char_matches?(_, _), do: false
 
   @doc """
   The not_char matcher accepts a char or a list of chars and will match any
@@ -282,7 +275,7 @@ defmodule Ergo.Terminals do
     "|" <> <<c::utf8>> <> "|"
   end
 
-  defp describe_char_match(min..max) when is_integer(min) and is_integer(max) do
+  defp describe_char_match(min..max//1) when is_integer(min) and is_integer(max) do
     "|#{<<min::utf8>>}|..|#{<<max::utf8>>}|"
   end
 
