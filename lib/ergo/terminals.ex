@@ -486,10 +486,10 @@ defmodule Ergo.Terminals do
   end
 
   defp advance(
-         %Context{input: input, consumed: consumed, index: i, line: l, col: c} = ctx,
+         %Context{input: input, index: i, line: l, col: c} = ctx,
          matched
        ) do
-    {i, l, c, consumed} = advance_chars(matched, i, l, c, consumed)
+    {i, l, c} = advance_chars(matched, i, l, c)
     size = byte_size(matched)
 
     %{
@@ -497,21 +497,20 @@ defmodule Ergo.Terminals do
       | status: :ok,
         ast: matched,
         input: binary_part(input, size, byte_size(input) - size),
-        consumed: consumed,
         index: i,
         line: l,
         col: c
     }
   end
 
-  defp advance_chars(<<>>, i, l, c, consumed), do: {i, l, c, consumed}
+  defp advance_chars(<<>>, i, l, c), do: {i, l, c}
 
-  defp advance_chars(<<?\n::utf8, rest::binary>>, i, l, _c, consumed) do
-    advance_chars(rest, i + 1, l + 1, 1, [?\n | consumed])
+  defp advance_chars(<<?\n::utf8, rest::binary>>, i, l, _c) do
+    advance_chars(rest, i + 1, l + 1, 1)
   end
 
-  defp advance_chars(<<ch::utf8, rest::binary>>, i, l, c, consumed) do
-    advance_chars(rest, i + 1, l, c + 1, [ch | consumed])
+  defp advance_chars(<<_ch::utf8, rest::binary>>, i, l, c) do
+    advance_chars(rest, i + 1, l, c + 1)
   end
 
   @doc """

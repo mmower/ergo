@@ -21,10 +21,6 @@ defmodule Ergo.Context do
 
   The binary input being parsed.
 
-  * `consumed`
-
-  The binary input that has already been consumed by parsing.
-
   * `index`
 
   Represents the position in the input which has been read so far. Initially 0 it increments for each character processed.
@@ -79,8 +75,8 @@ defmodule Ergo.Context do
             created_at: nil,
             status: :ok,
             serial: 0,
+            source: nil,
             input: "",
-            consumed: [],
             index: 0,
             line: 1,
             col: 1,
@@ -114,6 +110,7 @@ defmodule Ergo.Context do
       %Context{
         id: id,
         created_at: created_at,
+        source: input,
         input: input,
         ast: ast,
         data: data
@@ -128,13 +125,14 @@ defmodule Ergo.Context do
       iex> assert %Context{status: :ok, input: "Hello World", line: 1, col: 1, index: 0, tracks: %{}} = Context.new("Hello World")
     """
     def new(input \\ "", options \\ []) when is_binary(input) do
-      id = Keyword.get(options, :id, timestamp())
+      id = Keyword.get_lazy(options, :id, &timestamp/0)
       ast = Keyword.get(options, :ast, nil)
       data = Keyword.get(options, :data, %{})
 
       %Context{
         id: id,
         created_at: nil,
+        source: input,
         input: input,
         ast: ast,
         data: data
@@ -259,9 +257,7 @@ defmodule Ergo.Context do
     Context.add_error(ctx, :unexpected_eoi, "Unexpected end of input")
   end
 
-  def next_char(
-        %Context{input: input, consumed: consumed, index: index, line: line, col: col} = ctx
-      ) do
+  def next_char(%Context{input: input, index: index, line: line, col: col} = ctx) do
     <<char::utf8, rest::binary>> = input
     {new_index, new_line, new_col} = wind_forward({index, line, col}, char == ?\n)
 
@@ -269,7 +265,6 @@ defmodule Ergo.Context do
       ctx
       | status: :ok,
         input: rest,
-        consumed: [char | consumed],
         ast: char,
         index: new_index,
         line: new_line,
@@ -282,6 +277,14 @@ defmodule Ergo.Context do
       true -> {index + 1, line + 1, 1}
       false -> {index + 1, line, col + 1}
     end
+  end
+
+  @doc ~S"""
+  Returns the part of the input that has been consumed already. Note requires
+  a Context built with Context.new()
+  """
+  def consumed(%Context{source: source, input: input}) do
+    binary_part(source, 0, byte_size(source) - byte_size(input))
   end
 
   @doc """
